@@ -1,0 +1,49 @@
+<!DOCTYPE fontscolors PUBLIC "-//NetBeans//DTD Editor Fonts and Colors settings 1.1//EN" "https://netbeans.org/dtds/EditorFontsColors-1_1.dtd">
+<fontscolors>
+    <fontcolor name="character" default="char"/>
+    <fontcolor name="error" default="error"/>
+    <fontcolor name="identifier" default="identifier" foreColor="FF66CCFF"/>
+    <fontcolor name="keyword" default="keyword" foreColor="white">
+		 <font style="bold" />
+	 </fontcolor>
+	 <fontcolor name="asm_instruction" default="keyword" foreColor="FF99FFCC"/>
+	 <fontcolor name="asm_directive" default="keyword" foreColor="FFFF33FF"/>
+
+    <fontcolor name="comment" default="comment"/>
+	 <fontcolor name="comment_block" default="comment"/>
+	 <fontcolor name="register" default="keyword" foreColor="FFCCCCFF">
+		 <font style="bold" />
+	 </fontcolor>
+	 <fontcolor name="flag" default="keyword" foreColor="FF99FFCC">
+		 <font style="bold" />
+	 </fontcolor>
+	 <fontcolor name="array" default="keyword" foreColor="FFFFFFFF">
+		 <font style="bold" />
+	 </fontcolor>
+	 <fontcolor name="pair" default="keyword" foreColor="FF99CCFF">
+		 <font style="bold" />
+	 </fontcolor>
+	 <fontcolor name="builtin" default="keyword" foreColor="FF6699FF">
+		 <font style="bold" />
+	 </fontcolor>
+    <fontcolor name="number" default="number"/>
+	 <fontcolor name="number_bin" default="number" foreColor="FFCCFFCC" />
+	 <fontcolor name="number_hex" default="number" foreColor="FFFFCCFF" />
+	 <fontcolor name="number_oct" default="number" foreColor="FFFFCC33" />
+	 <fontcolor name="label" default="identifier" foreColor="FFCCFF00" />
+	 <fontcolor name="argument" default="identifier" foreColor="FFCCFF99" />
+    <fontcolor name="operator" default="operator" foreColor="FFFFFFCC" />
+    <fontcolor name="string" default="string"/>
+    <fontcolor name="whitespace" default="whitespace"/>
+	 <fontcolor name="preprocessor" default="preprocessor" foreColor="FF00FF00"/>
+
+	 <!--
+	 <fontcolor name="command" default="command"/>
+    <fontcolor name="literal" default="keyword" />
+	 <fontcolor name="separator" default="separator"/>
+	     <fontcolor name="method_declaration" default="method">
+        <font style="bold" />
+    </fontcolor>
+
+	 -->
+</fontscolors>

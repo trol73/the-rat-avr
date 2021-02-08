@@ -1,0 +1,51 @@
+#define CPU "atmega8"
+
+vectors {
+}
+
+
+proc drawCircle(circle_x: r24, circle_y: r22, radius: r20) {
+   use r19 as x0, r16 as y0
+   use r26 as ddF_x, r27 as ddF_y
+   use r30 as x, r31 as y, r23 as f
+
+
+   x0 = circle_x
+   y0 = circle_y
+   f = 1 - radius
+   ddF_x = 1
+   ddF_y = radius
+   x = 0
+   y = radius
+   ddF_y = -ddF_y
+   ddF_y += ddF_y
+
+   rcall drawPixel (x: circle_x,   y: circle_y+radius)
+   rcall drawPixel (x: x0,   y: y0-y)
+   rcall drawPixel (x: x0+y, y: y0)
+   rcall drawPixel (x: x0-y, y: y0)
+
+   loop {
+      if (signed x >= y) {
+        ret
+      }
+      if (!f[7]) {
+        y -= 1
+        ddF_y += 2
+        f += ddF_y
+      }
+      x++
+      ddF_x += 2
+      f += ddF_x
+
+      rcall drawPixel(x: x0 + x, y: y0 + y)
+      rcall drawPixel(x: x0 + x, y: y0 - y)
+      rcall drawPixel(x: x0 - x, y: y0 - y)
+      rcall drawPixel(x: x0 - x, y: y0 + y)
+
+      rcall drawPixel(x: x0 + y, y: y0 + x)
+      rcall drawPixel(x: x0 + y, y: y0 - x)
+      rcall drawPixel(x: x0 - y, y: y0 + x)
+      rcall drawPixel(x: x0 - y, y: y0 - x)
+   }
+}
