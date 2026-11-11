@@ -485,6 +485,32 @@ fun AvrRatCompiler.compileAssignToRegGroup(group: RegisterGroupNode, right: Node
             compileAssignToExternProc(group, right)
         }
 
+        is PrefixOperNode -> {
+            if (right.operator.isDecOrInc()) {
+                val expr = right.expression
+                if (expr is RegisterGroupNode && expr.isHighPair()) {
+                    val v = if (right.operator == Operator.INC) 1 else -1
+                    compileAddConstToHighPair(expr, v, loc)
+                    assignGroups(group, expr, loc)
+                } else {
+                    errorUnsupportedOperation(loc)
+                }
+            }
+        }
+
+        is SuffixOperNode -> {
+            if (right.operator.isDecOrInc()) {
+                val expr = right.expression
+                if (expr is RegisterGroupNode && expr.isHighPair()) {
+                    val v = if (right.operator == Operator.INC) 1 else -1
+                    assignGroups(group, expr, loc)
+                    compileAddConstToHighPair(expr, v, loc)
+                } else {
+                    errorUnsupportedOperation(loc)
+                }
+            }
+        }
+
         else -> errorWrongExpression(loc)
     }
 }
@@ -882,14 +908,8 @@ fun AvrRatCompiler.compileRegGroupPlusAssignOp(
 
             // ADIW Rd+1 : Rd, K	d ∈ {24, 26, 28, 30}, 0 ≤ K ≤ 63
             // SBIW Rd+1 : Rd, K	d ∈ {24, 26, 28, 30}, 0 ≤ K ≤ 63
-            if ((dest.isHighPair() || dest.isR25R24()) && signedNum >= -63 && signedNum <= 63) {
-                if (signedNum < 0) {
-                    val cmdNode = AssemblerInstrNode(loc, "sbiw", listOf(dest, NumberNode(loc, -signedNum)))
-                    compileAssembler(cmdNode)
-                } else {
-                    val cmdNode = AssemblerInstrNode(loc, "adiw", listOf(dest, NumberNode(loc, signedNum)))
-                    compileAssembler(cmdNode)
-                }
+            if (dest.isHighPair() && signedNum >= -63 && signedNum <= 63) {
+                compileAddConstToHighPair(dest, signedNum, loc)
             } else {
                 val numArg = if (minus) -signedNum else ((1L shl (dest.size() * 8)) - signedNum).toInt()
                 if (minus) {
@@ -1017,6 +1037,16 @@ fun AvrRatCompiler.compileRegGroupPlusAssignOp(
             }
         }
         else -> errorWrongExpression(loc)
+    }
+}
+
+private fun AvrRatCompiler.compileAddConstToHighPair(dest: RegisterGroupNode, signedNum: Int, loc: SourceLocation) {
+    if (signedNum < 0) {
+        val cmdNode = AssemblerInstrNode(loc, "sbiw", listOf(dest, NumberNode(loc, -signedNum)))
+        compileAssembler(cmdNode)
+    } else {
+        val cmdNode = AssemblerInstrNode(loc, "adiw", listOf(dest, NumberNode(loc, signedNum)))
+        compileAssembler(cmdNode)
     }
 }
 

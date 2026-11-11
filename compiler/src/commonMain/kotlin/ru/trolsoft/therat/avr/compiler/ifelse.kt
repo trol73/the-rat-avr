@@ -297,7 +297,7 @@ private fun AvrRatCompiler.compileSimpleIfGoto(
                     compileRegIncDec(arg, left.operator)
                     compileIfFlagExpression(1, binOp.operator == Operator.NOT_EQ, loc, label)
                     return
-                } else if (arg is RegisterGroupNode && (arg.isHighPair() || arg.isR25R24())) {
+                } else if (arg is RegisterGroupNode && arg.isHighPair()) {
                     val cmdNode = if (left.operator == Operator.DEC) {
                         AssemblerInstrNode(loc, "sbiw", listOf(arg, NumberNode(loc, 1)))
                     } else {

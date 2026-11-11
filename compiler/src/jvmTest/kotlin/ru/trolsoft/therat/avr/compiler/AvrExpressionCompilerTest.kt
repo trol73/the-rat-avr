@@ -1283,10 +1283,8 @@ class AvrExpressionCompilerTest {
         res[0] shouldBe "ld r25, z"
         res[1] shouldBe "com r25"
     }
-
-    // Test for inversion of byte variable
+    
     @Test fun `reg = ~byte_var`() {
-        // Инверсия byte-переменной: lds + com
         val res = compileCode("""
             #define CPU "atmega8"
             var vx: byte
@@ -1294,8 +1292,49 @@ class AvrExpressionCompilerTest {
                 r25 = ~vx
             }
         """.trimIndent())
+
         res shouldHaveSize 2
         res[0] shouldBe "lds r25, 96"
         res[1] shouldBe "com r25"
+    }
+
+    @Test fun `low pair = ++Z`() {
+        val res = compileM8("""
+            r1.r0 = ++Z
+        """.trimIndent())
+
+        res shouldHaveSize 2
+        res[0] shouldBe "adiw z, 1"
+        res[1] shouldBe "movw r1:r0, r31:r30"
+    }
+
+    @Test fun `low pair = --Y`() {
+        val res = compileM8("""
+            r1.r0 = --Y
+        """.trimIndent())
+
+        res shouldHaveSize 2
+        res[0] shouldBe "sbiw y, 1"
+        res[1] shouldBe "movw r1:r0, r29:r28"
+    }
+
+    @Test fun `low pair = X++`() {
+        val res = compileM8("""
+            r1.r0 = X++
+        """.trimIndent())
+
+        res shouldHaveSize 2
+        res[0] shouldBe "movw r1:r0, r27:r26"
+        res[1] shouldBe "adiw x, 1"
+    }
+
+    @Test fun `low pair = Z--`() {
+        val res = compileM8("""
+            r1.r0 = Z--
+        """.trimIndent())
+
+        res shouldHaveSize 2
+        res[0] shouldBe "movw r1:r0, r31:r30"
+        res[1] shouldBe "sbiw z, 1"
     }
 }
