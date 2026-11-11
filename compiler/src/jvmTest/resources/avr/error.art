@@ -1,0 +1,5 @@
+#define CPU "atmega8"
+
+proc main() {
+	wrong_instr
+}

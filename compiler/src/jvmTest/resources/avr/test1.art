@@ -1,0 +1,16 @@
+#define CPU "atmega8"
+
+proc main() {
+	use r16 as tr2
+	use r17 as tr1
+	loop (tr2) {
+		tr1 = ++mem[Z]
+		if (tr1 == 10) {
+			mem[Z++] = tr1 = 0
+		} else {
+			mem[Z++] = tr1
+			break
+		}
+	}
+	ret
+}

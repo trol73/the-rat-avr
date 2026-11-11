@@ -1,0 +1,276 @@
+name: Nightly Build
+
+on:
+  schedule:
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: nightly-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # JVM artifact + Linux native binaries
+  # ---------------------------------------------------------------------------
+  build:
+    name: Build (JVM + Linux)
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup JDK 21
+        uses: actions/setup-java@v5
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: gradle
+
+      - name: Grant execute permission for gradlew
+        working-directory: compiler
+        shell: bash
+        run: chmod +x gradlew
+
+      - name: Build JVM artifact
+        working-directory: compiler
+        shell: bash
+        run: |
+          set -euo pipefail
+          ./gradlew --no-daemon fatJar
+
+      - name: Rename JAR
+        working-directory: compiler/build/libs
+        shell: bash
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          jars=(the-rat-*-all.jar)
+          if [ "${#jars[@]}" -ne 1 ]; then
+            echo "Expected exactly one the-rat-*-all.jar, found: ${#jars[@]}" >&2
+            ls -la >&2
+            exit 1
+          fi
+          mv "${jars[0]}" the-rat.jar
+          ls -la the-rat.jar
+
+      - name: Build Linux native binaries
+        working-directory: compiler
+        shell: bash
+        run: |
+          set -euo pipefail
+          ./gradlew --no-daemon linkRatcReleaseExecutableLinuxX64
+          ./gradlew --no-daemon linkRatcReleaseExecutableLinuxArm64
+
+      - name: Package Linux artifacts
+        working-directory: compiler
+        shell: bash
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+
+          mkdir -p ../dist
+
+          linux_x64=build/bin/linuxX64/ratcReleaseExecutable/ratc.kexe
+          linux_arm64=build/bin/linuxArm64/ratcReleaseExecutable/ratc.kexe
+
+          test -f "$linux_x64"   || { echo "Missing $linux_x64"   >&2; exit 1; }
+          test -f "$linux_arm64" || { echo "Missing $linux_arm64" >&2; exit 1; }
+
+          cp "$linux_x64"   ../dist/ratc
+          ( cd ../dist && zip -q ratc-linux-x64.zip ratc && rm ratc )
+
+          cp "$linux_arm64" ../dist/ratc
+          ( cd ../dist && zip -q ratc-linux-arm64.zip ratc && rm ratc )
+
+          ls -la ../dist
+
+      - name: Upload JAR
+        uses: actions/upload-artifact@v4
+        with:
+          name: ratc-jvm
+          path: compiler/build/libs/the-rat.jar
+          if-no-files-found: error
+
+      - name: Upload Linux artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ratc-linux
+          path: |
+            dist/ratc-linux-x64.zip
+            dist/ratc-linux-arm64.zip
+          if-no-files-found: error
+
+  # ---------------------------------------------------------------------------
+  # Windows native binaries
+  # ---------------------------------------------------------------------------
+  build-native-windows:
+    name: Build Native Windows
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: gradle
+
+      - name: Build Windows native binary
+        working-directory: compiler
+        shell: bash
+        run: |
+          set -euo pipefail
+          ./gradlew --no-daemon linkRatcReleaseExecutableMingwX64
+
+      - name: Package Windows artifact
+        working-directory: compiler
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+
+          $winExe = 'build/bin/mingwX64/ratcReleaseExecutable/ratc.exe'
+          if (-not (Test-Path $winExe)) {
+            Write-Error "Missing $winExe"
+            exit 1
+          }
+
+          New-Item -ItemType Directory -Force -Path '../dist' | Out-Null
+          Copy-Item $winExe '../dist/ratc.exe'
+
+          $zipPath = (Resolve-Path '../dist').Path + '\ratc-windows-x64.zip'
+          if (Test-Path $zipPath) { Remove-Item $zipPath -Force }
+
+          Compress-Archive -Path '../dist/ratc.exe' -DestinationPath $zipPath -Force
+          Remove-Item '../dist/ratc.exe'
+
+          Get-ChildItem '../dist' | Format-Table Name, Length
+
+      - name: Upload Windows artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ratc-windows
+          path: dist/ratc-windows-x64.zip
+          if-no-files-found: error
+
+  # ---------------------------------------------------------------------------
+  # macOS native binaries
+  # ---------------------------------------------------------------------------
+  build-native-macos:
+    name: Build Native macOS
+    runs-on: macos-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup JDK 21
+        uses: actions/setup-java@v5
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: gradle
+
+      - name: Grant execute permission for gradlew
+        working-directory: compiler
+        shell: bash
+        run: chmod +x gradlew
+
+      - name: Build macOS binaries
+        working-directory: compiler
+        shell: bash
+        run: |
+          set -euo pipefail
+          ./gradlew --no-daemon linkRatcReleaseExecutableMacosX64
+          ./gradlew --no-daemon linkRatcReleaseExecutableMacosArm64
+
+      - name: Package macOS artifacts
+        working-directory: compiler
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          mkdir -p ../dist
+
+          macos_x64=build/bin/macosX64/ratcReleaseExecutable/ratc.kexe
+          macos_arm64=build/bin/macosArm64/ratcReleaseExecutable/ratc.kexe
+
+          test -f "$macos_x64"   || { echo "Missing $macos_x64"   >&2; exit 1; }
+          test -f "$macos_arm64" || { echo "Missing $macos_arm64" >&2; exit 1; }
+
+          cp "$macos_x64" ../dist/ratc
+          ( cd ../dist && zip -q ratc-macos-x64.zip ratc && rm ratc )
+
+          cp "$macos_arm64" ../dist/ratc
+          ( cd ../dist && zip -q ratc-macos-arm64.zip ratc && rm ratc )
+
+          ls -la ../dist
+
+      - name: Upload macOS artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ratc-macos
+          path: |
+            dist/ratc-macos-x64.zip
+            dist/ratc-macos-arm64.zip
+          if-no-files-found: error
+
+  # ---------------------------------------------------------------------------
+  # Publish nightly release
+  # ---------------------------------------------------------------------------
+  create-release:
+    name: Create Nightly Release
+    needs: [build, build-native-windows, build-native-macos]
+    runs-on: ubuntu-latest
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    permissions:
+      contents: write
+      actions: read
+
+    steps:
+      - name: Compute release tag
+        id: meta
+        shell: bash
+        run: |
+          set -euo pipefail
+          date_utc="$(date -u +'%Y%m%d')"
+          echo "date=${date_utc}"       >> "$GITHUB_OUTPUT"
+          echo "tag=nightly-${date_utc}" >> "$GITHUB_OUTPUT"
+
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: List downloaded artifacts (debug)
+        shell: bash
+        run: |
+          set -euo pipefail
+          find artifacts -type f -printf '%p (%s bytes)\n' | sort
+
+      - name: Delete existing nightly release and tag (idempotent)
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ steps.meta.outputs.tag }}
+        run: |
+          set -euo pipefail
+          gh release delete "$TAG" --yes --cleanup-tag || true
+
+      - name: Create nightly release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.meta.outputs.tag }}
+          name: Nightly Build ${{ steps.meta.outputs.date }}
+          prerelease: true
+          generate_release_notes: false
+          fail_on_unmatched_files: true
+          files: |
+            artifacts/**/*.jar
+            artifacts/**/*.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

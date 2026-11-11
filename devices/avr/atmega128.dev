@@ -182,8 +182,8 @@ registers {
 		CS10 = 0                ; Clock Select1 bits bit 0
 		CS11 = 1                ; Clock Select1 bits bit 1
 		CS12 = 2                ; Clock Select1 bits bit 2
-		WGM10 = 3               ; Waveform Generation Mode bit 0
-		WGM11 = 4               ; Waveform Generation Mode bit 1
+		WGM12 = 3               ; Waveform Generation Mode bit 0
+		WGM13 = 4               ; Waveform Generation Mode bit 1
 		ICES1 = 6               ; Input Capture 1 Edge Select
 		ICNC1 = 7               ; Input Capture 1 Noise Canceler
 	}
@@ -416,8 +416,8 @@ registers {
 		CS30 = 0                ; Clock Select3 bits bit 0
 		CS31 = 1                ; Clock Select3 bits bit 1
 		CS32 = 2                ; Clock Select3 bits bit 2
-		WGM30 = 3               ; Waveform Generation Mode bit 0
-		WGM31 = 4               ; Waveform Generation Mode bit 1
+		WGM32 = 3               ; Waveform Generation Mode bit 0
+		WGM33 = 4               ; Waveform Generation Mode bit 1
 		ICES3 = 6               ; Input Capture 3 Edge Select
 		ICNC3 = 7               ; Input Capture 3  Noise Canceler
 	}
