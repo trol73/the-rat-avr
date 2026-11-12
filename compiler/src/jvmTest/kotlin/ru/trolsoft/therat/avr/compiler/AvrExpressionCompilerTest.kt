@@ -1068,18 +1068,14 @@ class AvrExpressionCompilerTest {
     }
 
     @Test fun `assign word port to Z`() {
-        val res = compileM8("""
-            Z = ADC
-        """.trimIndent())
+        val res = compileM8("Z = ADC")
         res shouldHaveSize 2
         res[0] shouldBe "in r30, 4"
         res[1] shouldBe "in r31, 5"
     }
 
     @Test fun `r25r24 = ADC`() {
-        val res = compileM8("""
-            r25.r24 = ADC
-        """.trimIndent())
+        val res = compileM8("r25.r24 = ADC")
         res shouldHaveSize 2
         res[0] shouldBe "in r24, 4"
         res[1] shouldBe "in r25, 5"
@@ -1165,36 +1161,28 @@ class AvrExpressionCompilerTest {
     }
 
     @Test fun `mem_Y = --reg`() {
-        val res = compileM8("""
-            mem[Y] = --r24
-        """.trimIndent())
+        val res = compileM8("mem[Y] = --r24")
         res shouldHaveSize 2
         res[0] shouldBe "dec r24"
         res[1] shouldBe "st y, r24"
     }
 
     @Test fun `mem_Y = ++reg`() {
-        val res = compileM8("""
-            mem[Y] = ++r24
-        """.trimIndent())
+        val res = compileM8("mem[Y] = ++r24")
         res shouldHaveSize 2
         res[0] shouldBe "inc r24"
         res[1] shouldBe "st y, r24"
     }
 
     @Test fun `mem_Y = reg--`() {
-        val res = compileM8("""
-            mem[Y] = r24--
-        """.trimIndent())
+        val res = compileM8("mem[Y] = r24--")
         res shouldHaveSize 2
         res[0] shouldBe "st y, r24"
         res[1] shouldBe "dec r24"
     }
 
     @Test fun `mem_Y = reg++`() {
-        val res = compileM8("""
-            mem[Y] = r24++
-        """.trimIndent())
+        val res = compileM8("mem[Y] = r24++")
         res shouldHaveSize 2
         res[0] shouldBe "st y, r24"
         res[1] shouldBe "inc r24"
@@ -1299,9 +1287,7 @@ class AvrExpressionCompilerTest {
     }
 
     @Test fun `low pair = ++Z`() {
-        val res = compileM8("""
-            r1.r0 = ++Z
-        """.trimIndent())
+        val res = compileM8("r1.r0 = ++Z")
 
         res shouldHaveSize 2
         res[0] shouldBe "adiw z, 1"
@@ -1309,9 +1295,7 @@ class AvrExpressionCompilerTest {
     }
 
     @Test fun `low pair = --Y`() {
-        val res = compileM8("""
-            r1.r0 = --Y
-        """.trimIndent())
+        val res = compileM8("r1.r0 = --Y")
 
         res shouldHaveSize 2
         res[0] shouldBe "sbiw y, 1"
@@ -1319,9 +1303,7 @@ class AvrExpressionCompilerTest {
     }
 
     @Test fun `low pair = X++`() {
-        val res = compileM8("""
-            r1.r0 = X++
-        """.trimIndent())
+        val res = compileM8("r1.r0 = X++")
 
         res shouldHaveSize 2
         res[0] shouldBe "movw r1:r0, r27:r26"
@@ -1329,12 +1311,104 @@ class AvrExpressionCompilerTest {
     }
 
     @Test fun `low pair = Z--`() {
-        val res = compileM8("""
-            r1.r0 = Z--
-        """.trimIndent())
+        val res = compileM8("r1.r0 = Z--")
 
         res shouldHaveSize 2
         res[0] shouldBe "movw r1:r0, r31:r30"
         res[1] shouldBe "sbiw z, 1"
+    }
+
+    @Test fun `low pair = ++X`() {
+        val res = compileM8("r1.r0 = ++X")
+
+        res shouldHaveSize 2
+        res[0] shouldBe "adiw x, 1"
+        res[1] shouldBe "movw r1:r0, r27:r26"
+    }
+
+    @Test fun `low pair = ++Y`() {
+        val res = compileM8("r1.r0 = ++Y")
+
+        res shouldHaveSize 2
+        res[0] shouldBe "adiw y, 1"
+        res[1] shouldBe "movw r1:r0, r29:r28"
+    }
+
+    @Test fun `low pair = --Z`() {
+        val res = compileM8("r1.r0 = --Z")
+
+        res shouldHaveSize 2
+        res[0] shouldBe "sbiw z, 1"
+        res[1] shouldBe "movw r1:r0, r31:r30"
+    }
+
+    @Test fun `low pair = --X`() {
+        val res = compileM8("r1.r0 = --X")
+
+        res shouldHaveSize 2
+        res[0] shouldBe "sbiw x, 1"
+        res[1] shouldBe "movw r1:r0, r27:r26"
+    }
+
+    @Test fun `low pair = Y++`() {
+        val res = compileM8("r1.r0 = Y++")
+
+        res shouldHaveSize 2
+        res[0] shouldBe "movw r1:r0, r29:r28"
+        res[1] shouldBe "adiw y, 1"
+    }
+
+    @Test fun `low pair = X--`() {
+        val res = compileM8("r1.r0 = X--")
+
+        res shouldHaveSize 2
+        res[0] shouldBe "movw r1:r0, r27:r26"
+        res[1] shouldBe "sbiw x, 1"
+    }
+
+    @Test fun `low pair = Y--`() {
+        val res = compileM8("r1.r0 = Y--")
+
+        res shouldHaveSize 2
+        res[0] shouldBe "movw r1:r0, r29:r28"
+        res[1] shouldBe "sbiw y, 1"
+    }
+
+    @Test fun `low pair = Z++`() {
+        val res = compileM8("r1.r0 = Z++")
+
+        res shouldHaveSize 2
+        res[0] shouldBe "movw r1:r0, r31:r30"
+        res[1] shouldBe "adiw z, 1"
+    }
+
+    @Test fun `pair += pair`() {
+        val res = compileM8("r25.r24 += r21.r20")
+
+        res shouldHaveSize 2
+        res[0] shouldBe "add r24, r20"
+        res[1] shouldBe "adc r25, r21"
+    }
+
+    @Test fun `pair -= pair`() {
+        val res = compileM8("r25.r24 -= r21.r20")
+
+        res shouldHaveSize 2
+        res[0] shouldBe "sub r24, r20"
+        res[1] shouldBe "sbc r25, r21"
+    }
+
+    @Test fun `r24 or= r25`() {
+        val res = compileM8("r24 |= r25")
+
+        res shouldHaveSize 1
+        res[0] shouldBe "or r24, r25"
+    }
+
+    @Test fun `r24 &= r25`() {
+        val res = compileM8("r24 &= r25")
+
+        res shouldHaveSize 1
+        res[0] shouldBe "and r24, r25"
     }
 }

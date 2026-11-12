@@ -1651,4 +1651,26 @@ class AvrCompilerTest {
         r[7] shouldBe "mov r1, r25"
         r[8] shouldBe "ret"
     }
+
+    @Test
+    fun `unexpected result error for simple proc with call`() {
+        shouldThrow<CompilerException> {
+            compileCode(
+                """
+                #define CPU "atmega8"
+                
+                proc read_uart() {
+                    r24 = 1
+                    ret
+                }
+                
+                proc main() {
+                    rcall read_uart() -> r0
+                    ret
+                }
+            """.trimIndent()
+            )
+        }.message shouldBe "Unexpected function output"
+    }
+
 }

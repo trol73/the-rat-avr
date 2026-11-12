@@ -38,7 +38,7 @@ internal fun AvrRatCompiler.compileAssignOp(leftArg: Node, rightArg: Node, loc: 
             compileAssignOp(left, right.left, loc)
         }
         left is RegisterNode -> {
-            compileAssignRegisterTo(left, right, loc)
+            compileAssignRegTo(left, right, loc)
         }
         right is RegisterNode -> {
             compileAssignNodeToRegister(left, right, loc)
@@ -59,18 +59,7 @@ internal fun AvrRatCompiler.compileAssignOp(leftArg: Node, rightArg: Node, loc: 
             compileAssignToExternProc(left, right)
         }
         left is IoPortBitNode && right is NumberNode -> {
-            val value = getBitValue(right)
-            if (left.port.name == "SREG") {
-                val mnemonic = if (value == 1) "bset" else "bclr"
-                val asmArgs = listOf(
-                    NumberNode(loc, left.bitIndex, 10)
-                )
-                val cmdNode = AssemblerInstrNode(loc, mnemonic, asmArgs)
-                compileAssembler(cmdNode)
-            } else {
-                val mnemonic = if (value == 1) "sbi" else "cbi"
-                compileAsmLowerIoBit(mnemonic, left)
-            }
+            compileAssignPortBitToVal(right, left, loc)
         }
         left is RegisterBitNode && right is IoPortBitNode && right.port.isLowerPort() -> {
             compileAsmRegNum("cbr", left.reg, 1 shl left.bit, loc)
@@ -137,21 +126,13 @@ internal fun AvrRatCompiler.compileAssignOp(leftArg: Node, rightArg: Node, loc: 
                 errorUnsupportedOperation(loc)
             }
         }
-        right is PrefixOperNode && (right.operator == Operator.DEC || right.operator == Operator.INC) && right.expression is RegisterNode -> {
-            if (right.operator == Operator.INC) {
-                compileAsmReg("inc", right.expression, right.expression.getLocation())
-            } else {
-                compileAsmReg("dec", right.expression, right.expression.getLocation())
-            }
+        right is PrefixOperNode && right.operator.isDecOrInc() && right.expression is RegisterNode -> {
+            compileRegIncDec(right.expression, right.operator)
             compileAssignOp(left, right.expression, loc)
         }
-        right is SuffixOperNode && (right.operator == Operator.DEC || right.operator == Operator.INC) && right.expression is RegisterNode -> {
+        right is SuffixOperNode && right.operator.isDecOrInc() && right.expression is RegisterNode -> {
             compileAssignOp(left, right.expression, loc)
-            if (right.operator == Operator.INC) {
-                compileAsmReg("inc", right.expression, right.expression.getLocation())
-            } else {
-                compileAsmReg("dec", right.expression, right.expression.getLocation())
-            }
+            compileRegIncDec(right.expression, right.operator)
         }
         else -> {
             errorWrongExpression(loc)
@@ -160,72 +141,35 @@ internal fun AvrRatCompiler.compileAssignOp(leftArg: Node, rightArg: Node, loc: 
 }
 
 
-fun AvrRatCompiler.compileAssignRegisterTo(reg: RegisterNode, right: Node, loc: SourceLocation) {
+private fun AvrRatCompiler.compileAssignPortBitToVal(
+    right: NumberNode,
+    left: IoPortBitNode,
+    loc: SourceLocation
+) {
+    val value = getBitValue(right)
+    if (left.port.name == "SREG") {
+        val mnemonic = if (value == 1) "bset" else "bclr"
+        val asmArgs = listOf(
+            NumberNode(loc, left.bitIndex, 10)
+        )
+        val cmdNode = AssemblerInstrNode(loc, mnemonic, asmArgs)
+        compileAssembler(cmdNode)
+    } else {
+        val mnemonic = if (value == 1) "sbi" else "cbi"
+        compileAsmLowerIoBit(mnemonic, left)
+    }
+}
+
+
+fun AvrRatCompiler.compileAssignRegTo(reg: RegisterNode, right: Node, loc: SourceLocation) {
     when (right) {
-        is NumberNode -> {
-            if (right.value == 0) {
-                compileAsmReg("clr", reg, loc)
-            } else if (reg.getNumber() >= 16) {
-                compileAsmRegNum("ldi", reg, right, loc)
-            } else {
-                errorHighRegisterExpected(reg)
-            }
-        }
-
-        is RegisterNode -> {
-            if (reg.reg != right.reg) {
-                compileAsmRegReg("mov", reg, right, loc)
-            }
-        }
-
-        is IoPortNode -> {
-            if (right.size != 1) {
-                errorSizeMismatch(reg, right)
-            }
-            val offset = NumberNode(right.getLocation(), right.address, 16)
-            if (right.address <= 0x3f) {
-                compileAsmRegNum("in", reg, offset, loc)
-            } else {
-                compileAsmRegNum("lds", reg, offset, loc)
-            }
-        }
-
-        is MemArrayNode -> {
-            // X, X++, --X
-            // Y, Y++, --Y, Y+q
-            // Z, Z++, --Z, Z+q
-            when (val index = right.index) {
-                is RegisterGroupNode, is SuffixOperNode, is PrefixOperNode -> {
-                    compileAsmRegPair("ld", reg, index, loc)
-                }
-
-                is BinaryOperNode -> {
-                    compileAsmRegPair("ldd", reg, index, loc)
-                }
-
-                else -> {
-                    errorUnsupportedOperation(loc)
-                }
-            }
-        }
+        is NumberNode -> compileAssignRegisterToNum(reg, right, loc)
+        is RegisterNode -> compileAssignRegToReg(reg, right, loc)
+        is IoPortNode -> compileAssignRegToIoPort(reg, right, loc)
+        is MemArrayNode -> compileAssignRegToMemArray(reg, right, loc)
 
         is PrgArrayNode -> {
-            // LPM Z
-            // LPM Rd, Z
-            // LPM Rd, Z+
-            val index = right.index
-            if (index is RegisterGroupNode && index.isZ()) {
-                if (reg.reg == "r0") {
-                    val cmdNode = AssemblerInstrNode(loc, "lpm", null)
-                    compileAssembler(cmdNode)
-                } else {
-                    compileAsmRegPair("lpm", reg, index, loc)
-                }
-            } else if (index is SuffixOperNode && index.expression is RegisterGroupNode && index.expression.isZ() && index.operator == Operator.INC) {
-                compileAsmRegPair("lpm", reg, index, loc)
-            } else {
-                errorUnsupportedOperation(loc)
-            }
+            compileAssignRegToPrgArray(reg, right, loc)
         }
 
         is VariableNode -> {
@@ -241,42 +185,12 @@ fun AvrRatCompiler.compileAssignRegisterTo(reg: RegisterNode, right: Node, loc: 
         }
 
         is PrefixOperNode if right.expression is RegisterNode -> {
-            when (right.operator) {
-                Operator.MINUS -> {
-                    val other = right.expression
-                    if (reg.reg != other.reg) {
-                        compileAsmRegReg("mov", reg, other, loc)
-                    }
-                    compileAsmReg("neg", reg, loc)
-                }
-
-                Operator.BINARY_NOT -> {
-                    val other = right.expression
-                    if (reg.reg != other.reg) {
-                        compileAsmRegReg("mov", reg, other, loc)
-                    }
-                    compileAsmReg("com", reg, loc)
-                }
-
-                Operator.INC -> {
-                    compileAsmReg("int", right.expression, loc)
-                    compileAsmRegReg("mov", reg, right.expression, loc)
-                }
-
-                Operator.DEC -> {
-                    compileAsmReg("dec", right.expression, loc)
-                    compileAsmRegReg("mov", reg, right.expression, loc)
-                }
-
-                else -> {
-                    errorWrongExpression(loc)
-                }
-            }
+            compileAssignRegToPrefixedReg(reg, right.expression, right.operator, loc)
         }
 
         is PrefixOperNode if (right.expression is PrgArrayNode || right.expression is MemArrayNode || right.expression is VariableNode)
                 && (right.operator == Operator.MINUS || right.operator == Operator.BINARY_NOT) -> {
-            compileAssignRegisterTo(reg, right.expression, loc)
+            compileAssignRegTo(reg, right.expression, loc)
             when (right.operator) {
                 Operator.MINUS -> compileAsmReg("neg", reg, loc)
                 Operator.BINARY_NOT -> compileAsmReg("com", reg, loc)
@@ -292,26 +206,26 @@ fun AvrRatCompiler.compileAssignRegisterTo(reg: RegisterNode, right: Node, loc: 
             errorUndefinedIdentifier(right)
         }
 
-        is PrefixOperNode if (right.operator == Operator.INC || right.operator == Operator.DEC) -> {
+        is PrefixOperNode if (right.operator.isDecOrInc()) -> {
             if (right.expression is MemArrayNode && right.expression.index is SuffixOperNode) {
                 val noSuffixRight = MemArrayNode(right.expression.getLocation(), right.expression.index.expression)
-                compileAssignRegisterTo(reg, noSuffixRight, loc)
+                compileAssignRegTo(reg, noSuffixRight, loc)
                 compileRegPrefix(PrefixOperNode(loc, right.operator, reg))
                 compileAssignNodeToRegister(right.expression, reg, loc)
             } else if (right.expression is MemArrayNode && right.expression.index is PrefixOperNode) {
-                compileAssignRegisterTo(reg, right.expression, loc)
+                compileAssignRegTo(reg, right.expression, loc)
                 compileRegPrefix(PrefixOperNode(loc, right.operator, reg))
                 val noPrefixRight = MemArrayNode(right.expression.getLocation(), right.expression.index.expression)
                 compileAssignNodeToRegister(noPrefixRight, reg, loc)
             } else {
-                compileAssignRegisterTo(reg, right.expression, loc)
+                compileAssignRegTo(reg, right.expression, loc)
                 compileRegPrefix(PrefixOperNode(loc, right.operator, reg))
                 compileAssignNodeToRegister(right.expression, reg, loc)
             }
         }
 
-        is SuffixOperNode if (right.operator == Operator.INC || right.operator == Operator.DEC) -> {
-            compileAssignRegisterTo(reg, right.expression, loc)
+        is SuffixOperNode if (right.operator.isDecOrInc()) -> {
+            compileAssignRegTo(reg, right.expression, loc)
 //        if (right.expression is MemArrayNode) {
 //            compileRegIncDec(reg, right.operator)
 //            compileAssignOp(right.expression, reg, right.expression.getLocation())
@@ -326,12 +240,99 @@ fun AvrRatCompiler.compileAssignRegisterTo(reg: RegisterNode, right: Node, loc: 
     }
 }
 
+fun AvrRatCompiler.compileAssignRegToPrefixedReg(reg: RegisterNode, right: RegisterNode, operator: Operator, loc: SourceLocation) {
+    when (operator) {
+        Operator.MINUS -> {
+            compileAssignRegToReg(reg, right, loc)
+            compileAsmReg("neg", reg, loc)
+        }
+        Operator.BINARY_NOT -> {
+            compileAssignRegToReg(reg, right, loc)
+            compileAsmReg("com", reg, loc)
+        }
+        Operator.INC -> {
+            compileAsmReg("inc", right, loc)
+            compileAssignRegToReg(reg, right, loc)
+        }
+        Operator.DEC -> {
+            compileAsmReg("dec", right, loc)
+            compileAssignRegToReg(reg, right, loc)
+        }
+        else -> {
+            errorWrongExpression(loc)
+        }
+    }
+}
+private fun AvrRatCompiler.compileAssignRegToMemArray(reg: RegisterNode, right: MemArrayNode, loc: SourceLocation) {
+    // X, X++, --X
+    // Y, Y++, --Y, Y+q
+    // Z, Z++, --Z, Z+q
+    when (val index = right.index) {
+        is RegisterGroupNode, is SuffixOperNode, is PrefixOperNode -> {
+            compileAsmRegPair("ld", reg, index, loc)
+        }
+        is BinaryOperNode -> {
+            compileAsmRegPair("ldd", reg, index, loc)
+        }
+        else -> {
+            errorUnsupportedOperation(loc)
+        }
+    }
+}
+
+private fun AvrRatCompiler.compileAssignRegToIoPort(reg: RegisterNode, port: IoPortNode, loc: SourceLocation) {
+    if (port.size != 1) {
+        errorSizeMismatch(reg, port)
+    }
+    val offset = NumberNode(port.getLocation(), port.address, 16)
+    if (port.address <= 0x3f) {
+        compileAsmRegNum("in", reg, offset, loc)
+    } else {
+        compileAsmRegNum("lds", reg, offset, loc)
+    }
+}
+
+private fun AvrRatCompiler.compileAssignRegisterToNum(
+    reg: RegisterNode,
+    num: NumberNode,
+    loc: SourceLocation
+) {
+    if (num.value == 0) {
+        compileAsmReg("clr", reg, loc)
+    } else if (reg.getNumber() >= 16) {
+        compileAsmRegNum("ldi", reg, num, loc)
+    } else {
+        errorHighRegisterExpected(reg)
+    }
+}
+
+private fun AvrRatCompiler.compileAssignRegToPrgArray(reg: RegisterNode, right: PrgArrayNode, loc: SourceLocation) {
+    // LPM Z
+    // LPM Rd, Z
+    // LPM Rd, Z+
+    val index = right.index
+    if (index is RegisterGroupNode && index.isZ()) {
+        if (reg.reg == "r0") {
+            val cmdNode = AssemblerInstrNode(loc, "lpm", null)
+            compileAssembler(cmdNode)
+        } else {
+            compileAsmRegPair("lpm", reg, index, loc)
+        }
+    } else if (index is SuffixOperNode && index.expression is RegisterGroupNode && index.expression.isZ() && index.operator == Operator.INC) {
+        compileAsmRegPair("lpm", reg, index, loc)
+    } else {
+        errorUnsupportedOperation(loc)
+    }
+
+}
+
+
 private fun AvrRatCompiler.compileAssignRegisterToBinaryOp(reg: RegisterNode, binop: BinaryOperNode, loc: SourceLocation) {
     if (binop.operator == Operator.ASSIGN) {
         val left = resolveArg(binop.left)
         if (left is RegisterNode) {
             compileBinaryOp(binop)
-            compileAssignRegisterTo(reg, left, loc)
+            compileAssignRegTo(reg, left, loc)
             return
         }
     }
@@ -342,7 +343,7 @@ private fun AvrRatCompiler.compileAssignRegisterToBinaryOp(reg: RegisterNode, bi
             compileBinaryOp(op)
         }
     } else {
-        compileAssignRegisterTo(reg, simplified, loc)
+        compileAssignRegTo(reg, simplified, loc)
     }
 }
 
@@ -451,7 +452,7 @@ fun AvrRatCompiler.compileAssignToRegGroup(group: RegisterGroupNode, right: Node
         }
 
         is BinaryOperNode -> {
-            assignBinaryOperToRegGroup(right, group, loc)
+            assignBinaryOperToRegGroup(group, right, loc)
         }
 
         is RegisterGroupNode -> {
@@ -515,24 +516,20 @@ fun AvrRatCompiler.compileAssignToRegGroup(group: RegisterGroupNode, right: Node
     }
 }
 
-private fun AvrRatCompiler.assignBinaryOperToRegGroup(
-    right: BinaryOperNode,
-    group: RegisterGroupNode,
-    loc: SourceLocation
-) {
+private fun AvrRatCompiler.assignBinaryOperToRegGroup(dest: RegisterGroupNode, right: BinaryOperNode,loc: SourceLocation) {
     val opLeft = resolveArg(right.left)
     val opRight = resolveArg(right.right)
     when {
         opLeft is VariableNode && opRight is NumberNode -> {
-            if (opLeft.variable.arraySize == null && opLeft.variable.dataType.ramSize == group.size()) {
-                compileAssignToRegGroup(group, opLeft, loc)
+            if (opLeft.variable.arraySize == null && opLeft.variable.dataType.ramSize == dest.size()) {
+                compileAssignToRegGroup(dest, opLeft, loc)
                 when (right.operator) {
-                    Operator.PLUS -> compilePlusAssignOp(group, opRight, loc, false)
-                    Operator.MINUS -> compilePlusAssignOp(group, opRight, loc, true)
+                    Operator.PLUS -> compilePlusAssignOp(dest, opRight, loc, false)
+                    Operator.MINUS -> compilePlusAssignOp(dest, opRight, loc, true)
                     else -> errorUnsupportedOperation(loc)
                 }
             } else if (opLeft.variable.arraySize != null) {
-                assignPairToValue(group, opLeft.address + opRight.value, loc)
+                assignPairToValue(dest, opLeft.address + opRight.value, loc)
             } else {
                 errorUnsupportedOperation(loc)
             }
@@ -542,27 +539,27 @@ private fun AvrRatCompiler.assignBinaryOperToRegGroup(
             if (opRight.variable.arraySize == null) {
                 errorUnsupportedOperation(loc)
             }
-            assignPairToValue(group, opRight.address + opLeft.value, loc)
+            assignPairToValue(dest, opRight.address + opLeft.value, loc)
         }
 
         opLeft is IdentifierNode && opRight is NumberNode -> {// && right.operator == Operator.DIV) {
             val label = findLabel(opLeft.name)
-            if (label != null && group.size() == 2) {
+            if (label != null && dest.size() == 2) {
                 val labelNode = ProgramMemNode(loc, label)
                 val rightNode = BinaryOperNode(right.getLocation(), right.operator, labelNode, opRight)
                 val lowNode =
                     BinaryOperNode(rightNode.getLocation(), Operator.AND, rightNode, NumberNode(loc, 0xff))
                 val highNode =
                     BinaryOperNode(rightNode.getLocation(), Operator.SHR, rightNode, NumberNode(loc, 8))
-                compileAsmRegDeferredNum(AvrCmd.LDI, group.buildRegisterNode(0), highNode, loc)
-                compileAsmRegDeferredNum(AvrCmd.LDI, group.buildRegisterNode(1), lowNode, loc)
+                compileAsmRegDeferredNum(AvrCmd.LDI, dest.buildRegisterNode(0), highNode, loc)
+                compileAsmRegDeferredNum(AvrCmd.LDI, dest.buildRegisterNode(1), lowNode, loc)
                 return
             } else {
                 errorUnsupportedOperation(loc)
             }
         }
 
-        opLeft is ResolvedExternVar && opLeft.dataType == DataType.PTR && group.size() == 2 && opRight is NumberNode -> {
+        opLeft is ResolvedExternVar && opLeft.dataType == DataType.PTR && dest.size() == 2 && opRight is NumberNode -> {
             val newName = when (right.operator) {
                 Operator.PLUS -> "${opLeft.name}+${opRight.value}"
                 Operator.MINUS -> "${opLeft.name}-${opRight.value}"
@@ -570,26 +567,26 @@ private fun AvrRatCompiler.assignBinaryOperToRegGroup(
             }
             compileAsmRegDeferredNum(
                 AvrCmd.LDI,
-                group.buildRegisterNode(0),
+                dest.buildRegisterNode(0),
                 opLeft.modifyName("hi8($newName)"),
                 loc
             )
             compileAsmRegDeferredNum(
                 AvrCmd.LDI,
-                group.buildRegisterNode(1),
+                dest.buildRegisterNode(1),
                 opLeft.modifyName("lo8($newName)"),
                 loc
             )
         }
 
         right.operator == Operator.PLUS -> {
-            compileAssignToRegGroup(group, opLeft, opLeft.getLocation())
-            compilePlusAssignOp(group, opRight, opRight.getLocation(), false)
+            compileAssignToRegGroup(dest, opLeft, opLeft.getLocation())
+            compilePlusAssignOp(dest, opRight, opRight.getLocation(), false)
         }
 
         right.operator == Operator.MINUS -> {
-            compileAssignToRegGroup(group, opLeft, right.getLocation())
-            compilePlusAssignOp(group, opRight, opRight.getLocation(), true)
+            compileAssignToRegGroup(dest, opLeft, right.getLocation())
+            compilePlusAssignOp(dest, opRight, opRight.getLocation(), true)
         }
 
         else -> {
@@ -1155,10 +1152,10 @@ fun AvrRatCompiler.compileShiftAssignOp(binop: BinaryOperNode) {
     val cmdFirstShift = if (isLeftShift) "lsl" else "lsr"
     if (left is RegisterNode && right is NumberNode) {
         val num = right.value
-        if (num <= 0 || num >= 8) {
+        if (num !in 1..<8) {
             errorInvalidArgument(right)
         }
-        for (n in 1..num) {
+        repeat(num) {
             compileAsmReg(cmdFirstShift, left, binop.getLocation())
         }
     } else if (left is RegisterGroupNode && right is NumberNode) {
@@ -1167,7 +1164,7 @@ fun AvrRatCompiler.compileShiftAssignOp(binop: BinaryOperNode) {
         if (num <= 0 || num >= 8 * size) {
             errorInvalidArgument(right)
         }
-        for (n in 1..num) {
+        repeat(num) {
             if (isLeftShift) {
                 for (ri in size - 1 downTo 0) {
                     val cmd = if (ri == size - 1) cmdFirstShift else "rol"
@@ -1186,10 +1183,7 @@ fun AvrRatCompiler.compileShiftAssignOp(binop: BinaryOperNode) {
 }
 
 
-internal fun decomposeAssignRegs(
-    left: RegisterGroupNode,
-    right: RegisterGroupNode
-): List<Pair<RegisterNode, RegisterNode>> {
+internal fun decomposeAssignRegs(left: RegisterGroupNode, right: RegisterGroupNode): List<Pair<RegisterNode, RegisterNode>> {
     val pairs = mutableListOf<Pair<RegisterNode, RegisterNode>>()
     for (i in 0 until left.size()) {
         val l = left.getReg(i)
@@ -1228,9 +1222,13 @@ private fun AvrRatCompiler.assignGroups(left: RegisterGroupNode, right: Register
             }
 
         }
-        if (dest.reg != src.reg) {
-            compileAsmRegReg("mov", dest, src, loc)
-        }
+        compileAssignRegToReg(dest, src, loc)
+    }
+}
+
+private fun AvrRatCompiler.compileAssignRegToReg(dest: RegisterNode, src: RegisterNode, loc: SourceLocation) {
+    if (dest.reg != src.reg) {
+        compileAsmRegReg("mov", dest, src, loc)
     }
 }
 
@@ -1311,6 +1309,8 @@ private fun AvrRatCompiler.compileArrowRightOp(binop: BinaryOperNode) {
                     }
                 }
             }
+        } else {
+            errorUnexpectedFunctionOutput(binop)
         }
     } else {
         errorUnsupportedOperation(binop)
@@ -1327,6 +1327,10 @@ private fun collectNamedDestinations(dest: Node): List<CallArgumentNode> {
 
 private fun errorUnknownResultName(name: String, location: SourceLocation): Nothing {
     throw CompilerException("Unknown result name: $name", location)
+}
+
+private fun errorUnexpectedFunctionOutput(binop: BinaryOperNode): Nothing {
+    throw CompilerException("Unexpected function output", binop.getLocation())
 }
 
 

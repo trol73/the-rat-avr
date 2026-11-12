@@ -12,7 +12,7 @@ import ru.trolsoft.therat.arch.avr.*
 import ru.trolsoft.therat.avr.compiler.bus.parseBusDefinition
 import ru.trolsoft.therat.avr.compiler.compileAssignNodeToRegister
 import ru.trolsoft.therat.avr.compiler.compileAssignOp
-import ru.trolsoft.therat.avr.compiler.compileAssignRegisterTo
+import ru.trolsoft.therat.avr.compiler.compileAssignRegTo
 import ru.trolsoft.therat.avr.compiler.compileBinaryOp
 import ru.trolsoft.therat.avr.compiler.compileBuiltin
 import ru.trolsoft.therat.avr.compiler.compileDoWhile
@@ -1041,7 +1041,7 @@ open class AvrRatCompiler(
                     if (prevReg !is RegisterNode) {
                         errorSregCannotBeFirstHere(arg)
                     }
-                    compileAssignRegisterTo(prevReg, reg, arg.getLocation())
+                    compileAssignRegTo(prevReg, reg, arg.getLocation())
                     compileAsmReg("push", prevReg, arg.getLocation())
                     regs.add(reg)
                 }
