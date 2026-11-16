@@ -274,3 +274,26 @@ jobs:
             artifacts/**/*.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Delete old nightly releases
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+
+          gh release list \
+            --limit 100 \
+            --order desc \
+            --json tagName \
+            --jq 'map(select(.tagName | startswith("nightly-")))
+                  | .[2:]
+                  | .[].tagName' \
+          | while IFS= read -r tag; do
+              [ -z "$tag" ] && continue
+              echo "Deleting old nightly release: $tag"
+              gh release delete "$tag" \
+                --repo "${{ github.repository }}" \
+                --yes --cleanup-tag || true
+            done
