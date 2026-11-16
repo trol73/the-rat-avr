@@ -17,13 +17,14 @@ class AvrDevParser(stream: TokenStream) : Parser(stream) {
     private var ramSize: Int = 0
     private var ramStart: Int = 0
     private var eepromSize: Int = 0
+    private var vectorSize: Int = 0
     private val interrupts = mutableListOf<Interrupt>()
     private val registers = mutableListOf<IoRegister>()
 
     fun parseDevice(): AvrDevice {
         parse()
 
-        return AvrDevice(deviceName!!, progSize, ramStart, ramSize, eepromSize, Interrupts(interrupts), registers)
+        return AvrDevice(deviceName!!, progSize, ramStart, ramSize, eepromSize, vectorSize, Interrupts(interrupts), registers)
     }
 
     override fun parse(): Node {
@@ -74,6 +75,7 @@ class AvrDevParser(stream: TokenStream) : Parser(stream) {
             "eeprom_size" -> eepromSize = numVal(value)
             "ram_size" -> ramSize = numVal(value)
             "ram_start" -> ramStart = numVal(value)
+            "vector_size" -> vectorSize = numVal(value)
             else -> {
                 throw ParserException("Unexpected param", value.location)
             }

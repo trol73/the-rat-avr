@@ -44,6 +44,7 @@ data class AvrDevice(
     val ramStart: Int,
     val ramSize: Int,
     val eepromSize: Int,
+    val vectorSize: Int,
 
     val interrupts: Interrupts,
     val registers: List<IoRegister>
