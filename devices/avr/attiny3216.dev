@@ -1,6 +1,7 @@
 device {
 	name = "ATtiny3216"
 	prog_size = 0x8000
+	vector_size = 4
 }
 
 interrupts {

@@ -4,6 +4,7 @@ device {
 	eeprom_size = 0x0400
 	ram_size = 0x1000
 	ram_start = 0x0100
+	vector_size = 4
 }
 
 interrupts {
