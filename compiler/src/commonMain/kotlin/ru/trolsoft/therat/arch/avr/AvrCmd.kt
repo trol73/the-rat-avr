@@ -959,7 +959,7 @@ enum class AvrCmd(val arg1: ArgType? = null, val arg2: ArgType? = null) : AsmCmd
 }
 
 private fun checkRange(v: Int, min: Int, max: Int) {
-    if (v < min || v > max) {
+    if (v !in min..max) {
         throw AsmCompileException("Operand out of range ($min <= s <= $max): $v")
     }
 }

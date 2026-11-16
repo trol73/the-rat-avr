@@ -29,6 +29,28 @@ class AvrGccOutputTest {
         r.last() shouldBe "sbiw R30, 10"
     }
 
+    @Test fun `Y += big const`() {
+        val r = compileM8("Y += 2048")
+        r shouldHaveSize 2
+        r.first() shouldBe "subi R28, 0"
+        r.last() shouldBe "sbci R29, 248"
+    }
+
+    @Test fun `Z += big const`() {
+        val r = compileM8("Z += 2048")
+        r shouldHaveSize 2
+        r.first() shouldBe "subi R30, 0"
+        r.last() shouldBe "sbci R31, 248"
+    }
+
+    @Test fun `X -= big const`() {
+        val r = compileM8("X -= 2048")
+        r shouldHaveSize 2
+        r.first() shouldBe "subi R26, 0"
+        r.last() shouldBe "sbci R27, 8"
+    }
+
+
     @Test fun `movw operation`() {
         val r = compileM8("X = Y")
         r shouldHaveSize 1

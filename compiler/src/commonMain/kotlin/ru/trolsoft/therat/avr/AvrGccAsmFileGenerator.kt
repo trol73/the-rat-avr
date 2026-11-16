@@ -95,7 +95,8 @@ class AvrGccAsmFileGenerator : AsmFileGenerator() {
         val skipChecking = args.isNotEmpty() &&
                 (args[0] is ArgExtern || (args.size == 2 && args[1] is ArgExtern) ||
                 args[0] is DeferredNumberArg || (args.size == 2 && args[1] is DeferredNumberArg) ||
-                args[0] is ArgExternWithOffset || (args.size == 2 && args[1] is ArgExternWithOffset) )
+                args[0] is ArgExternWithOffset || (args.size == 2 && args[1] is ArgExternWithOffset) ||
+                args[0] is ArgNumberWithRadix || (args.size == 2 && args[1] is ArgNumberWithRadix) )
 
         for (arg in args) {
             if (arg is ArgLabel && arg.resolved == null) {

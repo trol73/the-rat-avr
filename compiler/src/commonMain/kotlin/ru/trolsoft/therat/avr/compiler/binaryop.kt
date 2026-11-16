@@ -912,7 +912,7 @@ fun AvrRatCompiler.compileRegGroupPlusAssignOp(
                 if (minus) {
                     compileAsmRegNum("subi", dest.lowReg(), numArg and 0xff, loc)
                 } else {
-                    compileAsmRegNum("subi", dest.lowReg(), 0x100 - (num and 0xff), loc)
+                    compileAsmRegNum("subi", dest.lowReg(), (0x100 - (num and 0xff)) and 0xff, loc)
                 }
                 for (i in dest.size() - 2 downTo 0) {
                     val byteNum = dest.size() - i - 1
@@ -995,7 +995,7 @@ fun AvrRatCompiler.compileRegGroupPlusAssignOp(
             val label = findLabel(right.name)
 
             if (label != null && dest.size() == 2) {
-                val labelNode = ProgramMemNode(loc, label)//, true)
+                val labelNode = ProgramMemNode(loc, label)
                 if (minus) {
                     val lowNode = BinaryOperNode(dest.getLocation(), Operator.AND, labelNode, NumberNode(loc, 0xff))
                     val highNode = BinaryOperNode(dest.getLocation(), Operator.SHR, labelNode, NumberNode(loc, 8))

@@ -457,44 +457,42 @@ class AvrExpressionCompilerTest {
     }
 
     @Test fun `pair += const16`() {
-        val res = compileM8("""
-            r24.r25 += 0x271
-        """.trimIndent())
+        val res = compileM8("r24.r25 += 0x271")
         res shouldHaveSize 2            // 0x10000 - 0x271 = 0xfd8f
         res[0] shouldBe "subi r25, 143" // 0x8f
         res[1] shouldBe "sbci r24, 253" // 0xfd
     }
 
     @Test fun `Z += 0x40`() {
-        val res = compileM8("""
-            Z += 0x40
-        """.trimIndent())
+        val res = compileM8("Z += 0x40")
         res shouldHaveSize 2
         res[0] shouldBe "subi r30, 192"   // 0x10000-0x40
         res[1] shouldBe "sbci r31, 255"
     }
 
     @Test fun `Z += small const`() {
-        val res = compileM8("""
-            Z += 0x20
-        """.trimIndent())
+        val res = compileM8("Z += 0x20")
         res shouldHaveSize 1
         res[0] shouldBe "adiw z, 32"
     }
 
+    @Test fun `Z += 2048`() {
+        val res = compileM8("Z += 2048")
+        res shouldHaveSize 2
+
+        res[0] shouldBe "subi r30, 0"
+        res[1] shouldBe "sbci r31, 248"
+    }
+
     @Test fun `Z -= big const`() {
-        val res = compileM8("""
-            Z -= 0x40
-        """.trimIndent())
+        val res = compileM8("Z -= 0x40")
         res shouldHaveSize 2
         res[0] shouldBe "subi r30, 64"
         res[1] shouldBe "sbci r31, 0"
     }
 
     @Test fun `Z -= small const`() {
-        val res = compileM8("""
-            Z -= 0x20
-        """.trimIndent())
+        val res = compileM8("Z -= 0x20")
         res shouldHaveSize 1
         res[0] shouldBe "sbiw z, 32"
     }
