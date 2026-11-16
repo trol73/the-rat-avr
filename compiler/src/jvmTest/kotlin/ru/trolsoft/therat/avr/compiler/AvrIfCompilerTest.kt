@@ -222,25 +222,26 @@ class AvrIfCompilerTest {
 
 
 
-//    @Test
-//    fun testIfSignedRegGreatEqZero() {
-//        val res = compileM8("""
-//            if (signed r21 >= 0) goto main
-//        """.trimIndent())
+    @Test fun `if (signed reg greta= 0)`() {
+        val res = compileM8("if (signed r21 >= 0) goto main")
+        res shouldHaveSize 2
+        res[0] shouldBe "tst r21"
+        res[1] shouldBe "brpl main"
+    }
+
+    @Test fun `if (signed reg great 0)`() {
+        val res = compileM8("if (signed r21 > 0) goto main")
+        res shouldHaveSize 2
+        res[0] shouldBe "cpi r21, 1"
+        res[1] shouldBe "brge main"
+    }
+
+//    @Test fun `if (signed reg great -10)`() {
+//        val res = compileM8("if (signed r21 > -10) goto main")
 //        res.forEach { println(it) }
-//        assertEquals(2, res.size)
-//        assertEquals("cpi r21, 0", res[0])
-//        assertEquals("brge main", res[1])
-//    }
-//
-//    @Test
-//    fun testIfSignedRegGreatZero() {
-//        val res = compileM8("""
-//            if (signed r21 > 0) goto main
-//        """.trimIndent())
-//        assertEquals(2, res.size)
-//        assertEquals("cpi r21, 10", res[0])
-//        assertEquals("brge main", res[1])
+//        res shouldHaveSize 2
+//        res[0] shouldBe "cpi r21, 1"
+//        res[1] shouldBe "brge main"
 //    }
 //
 //    @Test

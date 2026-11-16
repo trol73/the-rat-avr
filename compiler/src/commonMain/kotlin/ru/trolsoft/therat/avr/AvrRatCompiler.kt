@@ -544,7 +544,7 @@ open class AvrRatCompiler(
 
             getExternProc(arg.name) != null -> {
                 val p = getExternProc(arg.name)!!
-                return ResolvedExternProc(arg.getLocation(), arg.name, p.args)
+                return ResolvedExternProc(arg.getLocation(), arg.name, p.args, p.results)
             }
 
             // Local consts shadow global consts
@@ -1334,7 +1334,7 @@ open class AvrRatCompiler(
         }
         
         val proc = findProc(funcCall)
-        
+
         for (callArg in funcCall.args) {
             if (callArg !is CallArgumentNode) {
                 errorWrongArgument(callArg)
@@ -1513,7 +1513,7 @@ open class AvrRatCompiler(
                 val resolver = { currentOffset: Int, labelOffset: Int ->
                     (labelOffset - currentOffset) / 2 - 1
                 }
-                if (procs.containsKey(arg.name)) {
+                if (procs.containsKey(arg.name) || getExternProc(arg.name) != null) {
                     ArgLabel(arg.name, arg.name, arg.getLocation(), resolver)
                 } else {
                     buildArgLabel(arg.name, arg.getLocation(), false, resolver)
@@ -1524,7 +1524,7 @@ open class AvrRatCompiler(
                 val resolver = { currentOffset: Int, labelOffset: Int ->
                     labelOffset / 2
                 }
-                if (procs.containsKey(arg.name)) {
+                if (procs.containsKey(arg.name) || getExternProc(arg.name) != null) {
                     ArgLabel(arg.name, arg.name, arg.getLocation(), resolver)
                 } else {
                     buildArgLabel(arg.name, arg.getLocation(), false, resolver)

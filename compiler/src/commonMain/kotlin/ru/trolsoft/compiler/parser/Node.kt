@@ -326,11 +326,12 @@ data class ResolvedExternVar(
 data class ResolvedExternProc(
     private val loc: SourceLocation,
     val name: String,
-    val args: List<ProcArgumentNode>
+    val args: List<ProcArgumentNode>,
+    val results: List<ProcArgumentNode> = emptyList()
 ) : Node {
     override fun getLocation(): SourceLocation = loc
 
-    fun modifyName(newName: String) = ResolvedExternProc(loc, newName, args)
+    fun modifyName(newName: String) = ResolvedExternProc(loc, newName, args, results)
 }
 
 data class ExternProcNode(private val loc: SourceLocation, val proc: ProcNode, val address: Int? = null) : Node {

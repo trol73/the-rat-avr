@@ -12,50 +12,40 @@ import ru.trolsoft.compiler.compiler.CompilerException
 class AvrGccOutputTest {
 
     @Test fun `movw instruction`() {
-        val r = compileM8("""
-            movw X, Y
-        """.trimIndent())
+        val r = compileM8("movw X, Y")
         r shouldHaveSize 1
         r.last() shouldBe "movw R26, R28"
     }
 
     @Test fun `adiw instruction`() {
-        val r = compileM8("""
-            adiw Z, 10
-        """.trimIndent())
+        val r = compileM8("adiw Z, 10")
         r shouldHaveSize 1
         r.last() shouldBe "adiw R30, 10"
     }
 
     @Test fun `sbiw instruction`() {
-        val r = compileM8("""
-            sbiw Z, 10
-        """.trimIndent())
+        val r = compileM8("sbiw Z, 10")
         r shouldHaveSize 1
         r.last() shouldBe "sbiw R30, 10"
     }
 
     @Test fun `movw operation`() {
-        val r = compileM8("""
-            X = Y
-        """.trimIndent())
+        val r = compileM8("X = Y")
         r shouldHaveSize 1
         r.last() shouldBe "movw R26, R28"
     }
 
     @Test fun `write external byte var`() {
-        val r = compileM8("""
-            b = r10
-        """.trimIndent(), "extern var b: byte")
+        val r = compileM8("b = r10",
+            "extern var b: byte")
         r shouldHaveSize 2
         r[0] shouldBe ".extern b"
         r[1] shouldBe "sts b, R10"
     }
 
     @Test fun `write external word var`() {
-        val r = compileM8("""
-            w = r10.r11
-        """.trimIndent(), "extern var w: word")
+        val r = compileM8("w = r10.r11",
+            "extern var w: word")
         r shouldHaveSize 3
         r[0] shouldBe ".extern w"
         r[1] shouldBe "sts w+1, R10"
@@ -63,18 +53,16 @@ class AvrGccOutputTest {
     }
 
     @Test fun `read external byte var`() {
-        val r = compileM8("""
-            r10 = b
-        """.trimIndent(), "extern var b: byte")
+        val r = compileM8("r10 = b",
+            "extern var b: byte")
         r shouldHaveSize 2
         r[0] shouldBe ".extern b"
         r[1] shouldBe "lds R10, b"
     }
 
     @Test fun `read external word var`() {
-        val r = compileM8("""
-            r10.r11 = w
-        """.trimIndent(), "extern var w: word")
+        val r = compileM8("r10.r11 = w"
+            , "extern var w: word")
         r shouldHaveSize 3
         r[0] shouldBe ".extern w"
         r[1] shouldBe "lds R10, w+1"
@@ -106,44 +94,32 @@ class AvrGccOutputTest {
         r[4] shouldBe "_main_if_end_4:"
     }
 
-//    @Test fun testExternalProcAccess() {
-//        val r = compileM8("""
-//            Z = myExtProc
-//        """.trimIndent(), "extern proc myExtProc()")
-//
-//    }
-
     @Test fun `assign pair to proc ptr`() {
-        val r = compileM8("""
-            Z = main
-        """.trimIndent())
+        val r = compileM8("Z = main")
         r shouldHaveSize 2
         r[0] shouldBe "ldi R31, hi8(main)"
         r[1] shouldBe "ldi R30, lo8(main)"
     }
 
     @Test fun `write first byte to external array`() {
-        val r = compileM8("""
-            buf[0] = r24
-        """.trimIndent(), "extern var buf: ptr")
+        val r = compileM8("buf[0] = r24",
+            "extern var buf: ptr")
         r shouldHaveSize 2
         r[0] shouldBe ".extern buf"
         r[1] shouldBe "sts buf, R24"
     }
 
     @Test fun `write to external array`() {
-        val r = compileM8("""
-            buf[10] = r24
-        """.trimIndent(), "extern var buf: ptr")
+        val r = compileM8("buf[10] = r24",
+            "extern var buf: ptr")
         r shouldHaveSize 2
         r[0] shouldBe ".extern buf"
         r[1] shouldBe "sts buf+10, R24"
     }
 
     @Test fun `assign external buf plus word`() {
-        val r = compileM8("""
-            Z = buf + 0x100
-        """.trimIndent(), "extern var buf: ptr")
+        val r = compileM8("Z = buf + 0x100"
+            , "extern var buf: ptr")
         r shouldHaveSize 3
         r[0] shouldBe ".extern buf"
         r[1] shouldBe "ldi R31, hi8(buf+256)"
@@ -151,9 +127,8 @@ class AvrGccOutputTest {
     }
 
     @Test fun `add external ptr to Z`() {
-        val r = compileM8("""
-            Z += buf
-        """.trimIndent(), "extern var buf: ptr")
+        val r = compileM8("Z += buf",
+            "extern var buf: ptr")
         r shouldHaveSize 3
 
         r[0] shouldBe ".extern buf"
@@ -828,6 +803,22 @@ class AvrGccOutputTest {
         r[1] shouldBe ".extern ext_p"
         r[4] shouldBe "subi R30, lo8(-(ext_p))"
         r[5] shouldBe "sbci R31, hi8(-(ext_p))"
+    }
+
+    @Test fun `extern proc with return value`() {
+        val r = compile("""
+            #define CPU "mega8"
+            
+            extern proc ext_p() -> (res: r24)
+            
+            proc main() {
+                rcall ext_p() -> r1
+            }
+        """.trimIndent())
+
+        r[1] shouldBe ".extern ext_p"
+        r[4] shouldBe "rcall ext_p"
+        r[5] shouldBe "mov R1, R24"
     }
 
 

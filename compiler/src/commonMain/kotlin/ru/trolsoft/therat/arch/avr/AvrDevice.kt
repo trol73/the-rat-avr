@@ -3,54 +3,33 @@ package ru.trolsoft.therat.arch.avr
 data class Interrupt(
     val name: String,
     val offset: Int
-//        val description: String
 )
 
 data class RegisterBit(
     val name: String,
-    val number: Int
-//        val description: String
+    val number: Int,
 ) {
     override fun toString(): String = "$name[$number]"
 }
 
 data class IoRegister(
     val name: String,
-//        val description: String,
     val offset: Int,
     val size: Int,
     val bits: List<RegisterBit>
 ) {
-    fun getBitNumber(name: String): Int {
-        for (bit in bits) {
-            if (bit.name == name) {
-                return bit.number
-            }
-        }
-        return -1
-    }
+    fun getBitNumber(name: String): Int =
+        bits.find { it.name == name}?.number ?: -1
 }
 
 data class Interrupts(
     val vectors: List<Interrupt>
 ) {
-    fun hasVector(name: String): Boolean {
-        for (v in vectors) {
-            if (v.name == name) {
-                return true
-            }
-        }
-        return false
-    }
+    fun hasVector(name: String): Boolean =
+        vectors.find { it.name == name } != null
 
-    fun getOffset(name: String): Int {
-        for (v in vectors) {
-            if (v.name == name) {
-                return v.offset
-            }
-        }
-        return -1
-    }
+    fun getOffset(name: String): Int =
+        vectors.find { it.name == name }?.offset ?: -1
 
     fun size() = vectors.size
     operator fun get(offset: Int) = vectors[offset]
@@ -70,16 +49,8 @@ data class AvrDevice(
     val registers: List<IoRegister>
 ) {
 
-    fun findIo(name: String): IoRegister? {
-        for (io in registers) {
-            if (io.name == name) {
-                return io
-            }
-        }
-        return null
-    }
-//    fun hasIo(name: String): Boolean = getIoAddr(name) >= 0
-
+    fun findIo(name: String): IoRegister? =
+        registers.find { it.name == name }
 
     fun getIoAddr(name: String): Int {
         val r1 = findIo(name)
@@ -100,17 +71,6 @@ data class AvrDevice(
         }
         return -1
     }
-
-//    fun getIoSize(name: String): Int {
-//        val io = findIo(name)
-//        if (io != null) {
-//            return io.size
-//        }
-//        if (getIoAddr(name) >= 0) {
-//            return 1
-//        }
-//        return -1
-//    }
 
     private fun hasPort(name: String) = findIo("PORT" + name.uppercase()) != null
 
@@ -156,8 +116,8 @@ data class Device(
         const val NO_EICALL = 0x00002000    // No EICALL instruction
         const val NO_EIJMP = 0x00004000    // No EIJMP instruction
 
-        fun getDevice(name: String): Device? {
-            return when (name.lowercase()) {
+        fun getDevice(name: String): Device? =
+            when (name.lowercase()) {
                 // ATtiny4
                 // ATtiny5
                 // ATtiny9
@@ -404,7 +364,6 @@ data class Device(
                 else -> null
             }
         }
-    }
 }
 
 

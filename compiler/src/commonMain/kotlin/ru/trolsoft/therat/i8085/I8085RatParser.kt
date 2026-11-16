@@ -128,7 +128,17 @@ class I8085RatParser(stream: TokenStream) : RatParser(stream) {
                 val name = nextIdentifier()
                 checkBracket('(')
                 val args = parseProcArgsDefinition()
-                val proc = ProcNode(varOrProc.location, name.name, args, mutableListOf(), CompoundStmt(listOf()), false)
+                val results = mutableListOf<ProcArgumentNode>()
+                // Check for results specification: -> (name: reg, ...)
+                skipWhitespace()
+                val t = nextToken()
+                if (t is OperatorToken && t.name == "->") {
+                    checkBracket('(')
+                    results.addAll(parseProcResultsDefinition())
+                } else {
+                    stream.unreadLast(t)
+                }
+                val proc = ProcNode(varOrProc.location, name.name, args, results, CompoundStmt(listOf()), false)
                 nextKeyword("absolute")
                 val offset = nextNumber()
                 ExternProcNode(externToken.location, proc, offset.value)

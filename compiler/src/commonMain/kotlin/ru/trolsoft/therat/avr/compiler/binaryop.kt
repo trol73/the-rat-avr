@@ -1135,10 +1135,22 @@ fun AvrRatCompiler.compileAssignSregBitFromInvertedLowerIoBit(sregBit: Int, righ
 fun AvrRatCompiler.compileXorAssignOp(binop: BinaryOperNode) {
     val left = resolveArg(binop.left)
     val right = resolveArg(binop.right)
-    if (left is RegisterNode && right is RegisterNode) {
-        compileAsmRegReg("eor", left, right, binop.getLocation())
-    } else {
-        errorWrongExpression(binop)
+    val loc = binop.getLocation()
+    when {
+        left is RegisterNode && right is RegisterNode -> {
+            compileAsmRegReg("eor", left, right, loc)
+        }
+        left is RegisterGroupNode && right is RegisterGroupNode -> {
+            if (left.size() != right.size()) {
+                errorSizeMismatch(left, right)
+            }
+            for (i in 0 until left.size()) {
+                compileAsmRegReg("eor", left.getReg(i), right.getReg(i), loc)
+            }
+        }
+        else -> {
+            errorWrongExpression(binop)
+        }
     }
 }
 

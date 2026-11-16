@@ -160,6 +160,100 @@ class BinaryFileGeneratorTest {
     }
 
     @Test
+    fun `org with overlapping blocks throws error`() {
+        val gen = BinaryFileGenerator(Endian.LITTLE, OutputFormat.BINARY).apply {
+            addByte(0x01, dummyLocation)
+            addByte(0x02, dummyLocation)
+            org(1) // overlaps with first block (0-1)
+            addByte(0x03, dummyLocation)
+        }
+
+        val stream = Buffer()
+        shouldThrow<GeneratorException> {
+            gen.write(stream)
+        }.message!! shouldContain "Overlapping blocks"
+    }
+
+    @Test
+    fun `org with multiple overlapping blocks throws error`() {
+        val gen = BinaryFileGenerator(Endian.LITTLE, OutputFormat.BINARY).apply {
+            addByte(0x01, dummyLocation)
+            addByte(0x02, dummyLocation)
+            addByte(0x03, dummyLocation)
+            org(1) // overlaps with first two bytes
+            addByte(0x04, dummyLocation)
+            addByte(0x05, dummyLocation)
+        }
+
+        val stream = Buffer()
+        shouldThrow<GeneratorException> {
+            gen.write(stream)
+        }.message!! shouldContain "Overlapping blocks"
+    }
+
+    @Test
+    fun `org with exact boundary does not throw error`() {
+        val gen = BinaryFileGenerator(Endian.LITTLE, OutputFormat.BINARY).apply {
+            addByte(0x01, dummyLocation)
+            addByte(0x02, dummyLocation)
+            org(2) // exact boundary - no overlap
+            addByte(0x03, dummyLocation)
+        }
+
+        val stream = Buffer()
+        gen.write(stream) // should not throw
+
+        val bytes = stream.readByteArray()
+        bytes shouldHaveSize 3
+        bytes[0] shouldBe 0x01
+        bytes[1] shouldBe 0x02
+        bytes[2] shouldBe 0x03
+    }
+
+    @Test
+    fun `org with multiple writes to same address throws error`() {
+        val gen = BinaryFileGenerator(Endian.LITTLE, OutputFormat.BINARY).apply {
+            org(0x100)
+            addByte(0x01, dummyLocation)
+            org(0x100) // same address
+            addByte(0x02, dummyLocation)
+        }
+
+        val stream = Buffer()
+        shouldThrow<GeneratorException> {
+            gen.write(stream)
+        }.message!! shouldContain "Overlapping blocks"
+    }
+
+    @Test
+    fun `org with word overlap throws error`() {
+        val gen = BinaryFileGenerator(Endian.LITTLE, OutputFormat.BINARY).apply {
+            addWord(0x1234, dummyLocation) // 2 bytes at offset 0
+            org(1) // overlaps with second byte
+            addWord(0x5678, dummyLocation)
+        }
+
+        val stream = Buffer()
+        shouldThrow<GeneratorException> {
+            gen.write(stream)
+        }.message!! shouldContain "Overlapping blocks"
+    }
+
+    @Test
+    fun `org with dword overlap throws error`() {
+        val gen = BinaryFileGenerator(Endian.LITTLE, OutputFormat.BINARY).apply {
+            addDword(0x12345678, dummyLocation) // 4 bytes at offset 0
+            org(2) // overlaps with last 2 bytes
+            addByte(0xFF, dummyLocation)
+        }
+
+        val stream = Buffer()
+        shouldThrow<GeneratorException> {
+            gen.write(stream)
+        }.message!! shouldContain "Overlapping blocks"
+    }
+
+    @Test
     fun `validation rule passes`() {
         val gen = BinaryFileGenerator(Endian.LITTLE, OutputFormat.BINARY).apply {
             addLabel("start", dummyLocation)

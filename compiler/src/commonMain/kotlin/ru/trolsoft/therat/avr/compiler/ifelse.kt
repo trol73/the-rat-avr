@@ -693,8 +693,8 @@ private fun AvrRatCompiler.compileIfRegisterBitExpression(node: RegisterBitNode,
 internal fun AvrRatCompiler.compileIfIoBitExpression(node: IoPortBitNode, loc: SourceLocation, inverse: Boolean = false) {
     val cmd = if (inverse) "sbis" else "sbic"
     val asmArgs = listOf(
-            NumberNode(loc, node.port.address, 16),
-            NumberNode(loc, node.bitIndex, 10)
+        NumberNode(loc, node.port.address, 16),
+        NumberNode(loc, node.bitIndex, 10)
     )
     val cmdNode = AssemblerInstrNode(loc, cmd, asmArgs)
     compileAssembler(cmdNode)
@@ -703,8 +703,8 @@ internal fun AvrRatCompiler.compileIfIoBitExpression(node: IoPortBitNode, loc: S
 fun AvrRatCompiler.compileIfFlagExpression(bitIndex: Int, inverse: Boolean, loc: SourceLocation, label: String) {
     val cmd = if (inverse) "brbc" else "brbs"
     val args = listOf(
-            NumberNode(loc, bitIndex, 10),
-            IdentifierNode(loc, label)
+        NumberNode(loc, bitIndex, 10),
+        IdentifierNode(loc, label)
     )
     val cmdNode = AssemblerInstrNode(loc, cmd, args)
     compileAssembler(cmdNode)
@@ -742,11 +742,11 @@ private fun tryUnpackCompoundStmt(node: Node): Node {
 
 
 
-private fun Node.isSimpleCompare(): Boolean {
-    return this is BinaryOperNode && (operator == Operator.EQ || operator == Operator.NOT_EQ ||
-            operator == Operator.GREAT || operator == Operator.GREAT_EQ ||
-            operator == Operator.LESS|| operator == Operator.LESS_EQ)
-}
+private fun Node.isSimpleCompare(): Boolean =
+    this is BinaryOperNode && (operator == Operator.EQ || operator == Operator.NOT_EQ ||
+        operator == Operator.GREAT || operator == Operator.GREAT_EQ ||
+        operator == Operator.LESS|| operator == Operator.LESS_EQ)
+
 
 /*
 ; 		if (rmp.r0.ZH.ZL >= rDiv4.rDiv3.rDiv2.rDiv1) {		; compare with divident

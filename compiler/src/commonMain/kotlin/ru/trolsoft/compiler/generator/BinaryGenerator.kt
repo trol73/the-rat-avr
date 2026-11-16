@@ -52,9 +52,9 @@ open class BinaryFileGenerator(
 
     override fun write(sink: RawSink) {
         resolveLabels()
+        checkOverlaps()
         validate()
         val out = BinaryOutput(endian)
-        // TODO need to sort blocks and check overlaps
 
         for (block in list.blocks) {
             out.gotoAddress(block.offset)
@@ -131,6 +131,22 @@ open class BinaryFileGenerator(
             }
         }
         return size
+    }
+
+    private fun checkOverlaps() {
+        val sortedBlocks = list.blocks.sortedBy { it.offset }
+        for (i in 0 until sortedBlocks.size - 1) {
+            val current = sortedBlocks[i]
+            val next = sortedBlocks[i + 1]
+            val currentEnd = current.offset + current.bytesLength
+            if (currentEnd > next.offset) {
+                val loc = current.list.firstOrNull()?.location ?: SourceLocation("unknown", 0, 0)
+                throw GeneratorException(
+                    "Overlapping blocks: block at $currentEnd, but next block starts at ${next.offset}",
+                    loc
+                )
+            }
+        }
     }
 
     fun setStartOffset(offset: Int) {

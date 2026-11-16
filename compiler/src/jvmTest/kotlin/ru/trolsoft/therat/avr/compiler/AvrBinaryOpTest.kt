@@ -6,12 +6,7 @@ import io.kotest.matchers.shouldBe
 import org.junit.jupiter.api.Test
 import ru.trolsoft.compiler.compiler.CompilerException
 
-/**
- * Тесты для binaryop.kt — бинарные операции и присваивания.
- */
 class AvrBinaryOpTest {
-
-    // ==================== СДВИГИ ====================
 
     @Test fun `shift left single register`() {
         val res = compileM8("r24 <<= 3")
@@ -46,12 +41,32 @@ class AvrBinaryOpTest {
         }.message shouldBe "Invalid argument"
     }
 
-    // ==================== XOR ====================
-
     @Test fun `xor assign register to register`() {
         val res = compileM8("r24 ^= r25")
         res shouldHaveSize 1
         res[0] shouldBe "eor r24, r25"
+    }
+
+    @Test fun `xor assign pair to pair`() {
+        val res = compileM8("r25.r24 ^= r23.r22")
+        res shouldHaveSize 2
+        res[0] shouldBe "eor r25, r23"
+        res[1] shouldBe "eor r24, r22"
+    }
+
+    @Test fun `xor assign group to group`() {
+        val res = compileM8("r26.r25.r24 ^= r23.r22.r21")
+        res shouldHaveSize 3
+        res[0] shouldBe "eor r26, r23"
+        res[1] shouldBe "eor r25, r22"
+        res[2] shouldBe "eor r24, r21"
+    }
+
+    @Test fun `xor assign X to Y`() {
+        val res = compileM8("X ^= Y")
+        res shouldHaveSize 2
+        res[0] shouldBe "eor r27, r29"
+        res[1] shouldBe "eor r26, r28"
     }
 
     @Test fun `xor assign register to number fails`() {
@@ -59,8 +74,6 @@ class AvrBinaryOpTest {
             compileM8("r24 ^= 5")
         }
     }
-
-    // ==================== OR and AND ====================
 
     @Test fun `or assign register to immediate`() {
         val res = compileM8("r24 |= 0xf0")
@@ -97,8 +110,6 @@ class AvrBinaryOpTest {
             compileM8("r1 &= 0xf0")
         }.message shouldBe "r16..r31 expected but r1 found. Perhaps you can do this using a temporary register."
     }
-
-    // ==================== СДВИГИ РЕГИСТРОВЫХ ПАР ====================
 
     @Test fun `shift left register pair`() {
         val res = compileM8("r25.r24 <<= 1")
@@ -141,8 +152,6 @@ class AvrBinaryOpTest {
             compileM8("r25.r24 <<= 16")
         }.message shouldBe "Invalid argument"
     }
-
-    // ==================== MEM и PRG ====================
 
     @Test fun `assign from mem X to register`() {
         val res = compileM8("r24 = mem[X]")
@@ -197,8 +206,6 @@ class AvrBinaryOpTest {
         res shouldHaveSize 1
         res[0] shouldBe "lpm"
     }
-
-    // ==================== ПЕРЕМЕННЫЕ ====================
 
     @Test fun `assign register to byte variable`() {
         val res = compileCode("""
@@ -317,8 +324,6 @@ class AvrBinaryOpTest {
         res[1] shouldBe "dec r24"
     }
 
-    // ==================== PRE/POST INCREMENT/DECREMENT ====================
-
     @Test fun `post-increment register assign`() {
         val res = compileM8("r24 = r25++")
         res shouldHaveSize 2
@@ -339,8 +344,6 @@ class AvrBinaryOpTest {
         res[0] shouldBe "mov r24, r25"
         res[1] shouldBe "dec r25"
     }
-
-    // ==================== I/O PORTS ====================
 
     @Test fun `assign io port bit to register bit`() {
         val res = compileM8("ZH[7] = PINC->3")
@@ -390,8 +393,6 @@ class AvrBinaryOpTest {
         res[0] shouldBe "cbr r24, 8"
     }
 
-    // ==================== SREG BITS ====================
-
     @Test fun `set SREG C flag`() {
         val res = compileM8("SREG->C = 1")
         res shouldHaveSize 1
@@ -403,8 +404,6 @@ class AvrBinaryOpTest {
         res shouldHaveSize 1
         res[0] shouldBe "bclr 1"
     }
-
-    // ==================== REVERSE AND COMPLEMENT ====================
 
     @Test fun `negate register`() {
         val res = compileM8("r24 = -r25")
@@ -432,8 +431,6 @@ class AvrBinaryOpTest {
         res[0] shouldBe "com r24"
     }
 
-    // ==================== РЕГИСТРОВЫЕ ПАРЫ ====================
-
     @Test fun `assign pair to pair with movw`() {
         val res = compileM8("r25.r24 = r17.r16")
         res shouldHaveSize 1
@@ -456,12 +453,9 @@ class AvrBinaryOpTest {
     @Test fun `assign zero to pair`() {
         val res = compileM8("r25.r24 = 0")
         res shouldHaveSize 2
-        // Оба регистра >= 16 → ldi для обоих
         res[0] shouldBe "ldi r25, 0"
         res[1] shouldBe "ldi r24, 0"
     }
-
-    // ==================== MEM ARRAY ====================
 
     @Test fun `assign to mem Y with pre-increment`() {
         val res = compileM8("mem[Y] = ++r24")
@@ -496,8 +490,6 @@ class AvrBinaryOpTest {
         res shouldHaveSize 1
         res[0] shouldBe "st x+, r24"
     }
-
-    // ==================== ARROW LEFT (BIT COPY) ====================
 
     @Test fun `copy register bit through T flag`() {
         val res = compileM8("r21[2] <- r17[1]")
@@ -541,8 +533,6 @@ class AvrBinaryOpTest {
         res[1] shouldBe "bld r31, 2"
     }
 
-    // ==================== ERROR CASES ====================
-
     @Test fun `assign register bit to register bit fails`() {
         shouldThrow<CompilerException> {
             compileM8("r24[7] = r22[1]")
@@ -554,9 +544,6 @@ class AvrBinaryOpTest {
             compileM8("ZH[7] = TIFR->TOV0")
         }.message shouldBe "Can't read from high port (TIFR = 0x38) directly. You can do this using a temporary register."
     }
-
-    // ==================== ADD/SUB WITH VARIABLES ====================
-    // += и -= с переменной генерируют ошибку, т.к. add/sub не поддерживает память в AVR
 
     @Test fun `reg += byte variable fails`() {
         shouldThrow<CompilerException> {
@@ -582,8 +569,6 @@ class AvrBinaryOpTest {
         }.message shouldBe "Unsupported operation"
     }
 
-    // ==================== COMPLEX EXPRESSIONS ====================
-
     @Test fun `assign prg with register operation`() {
         val res = compileM8("r26 = prg[Z++] & r29")
         res shouldHaveSize 2
@@ -606,8 +591,6 @@ class AvrBinaryOpTest {
         res[1] shouldBe "com r26"
         res[2] shouldBe "and r26, r29"
     }
-
-    // ==================== PORT PAIRS ====================
 
     @Test fun `assign word port to pair`() {
         val res = compileM8("r25.r24 = ADC")
