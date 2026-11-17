@@ -139,13 +139,13 @@ class AvrRatParser(stream: TokenStream) : RatParser(stream) {
 
     private fun parseRegisterOrIdentifierAlias(first: IdentifierToken): Node {
         val checkDot = nextToken()
-        if (checkDot is DotToken) {
-            return parseDottedGroup(first)
+        return if (checkDot is DotToken) {
+            parseDottedGroup(first)
         } else {
             unreadLast()
             // Check if this is a special register pair (X, Y, Z)
             val regName = first.name.lowercase()
-            return when (regName) {
+            when (regName) {
                 "x" -> RegisterGroupNode(first.location, listOf("r27", "r26"))
                 "y" -> RegisterGroupNode(first.location, listOf("r29", "r28"))
                 "z" -> RegisterGroupNode(first.location, listOf("r31", "r30"))
@@ -162,7 +162,7 @@ class AvrRatParser(stream: TokenStream) : RatParser(stream) {
                     "x" -> RegisterGroupNode(token.location, listOf("r27", "r26"))
                     "y" -> RegisterGroupNode(token.location, listOf("r29", "r28"))
                     "z" -> RegisterGroupNode(token.location, listOf("r31", "r30"))
-                    else -> parseRegisterOrGroup(token) as Node
+                    else -> parseRegisterOrGroup(token)
                 }
             }
             is IdentifierToken -> parseRegisterOrIdentifierAlias(token)
@@ -190,13 +190,19 @@ class AvrRatParser(stream: TokenStream) : RatParser(stream) {
             val t = nextToken()
             if (t.isBracket('}')) {
                 break
-            }
-            if (t !is LabelToken) {
+            } else if (t !is LabelToken) {
                 errorLabelExpected(t)
             }
             skipWhitespace()
             val cmd = parseExpression()
             map[t.name] = cmd
+
+            skipWhitespace()
+            val nextOrLabelOrEnd = nextToken()
+            unreadLast()
+            if (!nextOrLabelOrEnd.isBracket('}') && nextOrLabelOrEnd !is LabelToken) {
+                map[t.name] = CompoundStmt(listOf(cmd, parseExpression()))
+            }
         }
         val res = VectorTableNode(vectorsToken.location, map)
         vectors = res

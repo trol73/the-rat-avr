@@ -620,12 +620,12 @@ open class AvrRatCompiler(
     private fun buildVectorsTable(ast: AvrAstNode) {
         val vectors = ast.vectors ?: return
         val allDeviceVectors = getDevice().interrupts
-        require(allDeviceVectors.size() == allDeviceVectors.vectors.last().offset + 1)
+        require(allDeviceVectors.size() == allDeviceVectors.vectors.last().offset + 1) // TODO ???
         checkVectorsTable(vectors, allDeviceVectors)
         val definedDefaultNode = vectors.getVectorNode("default")
         val defaultNode = when {
             definedDefaultNode != null -> definedDefaultNode
-            getVectorSizeInWords() == 1 -> AssemblerInstrNode(vectors.getLocation(), "reti", null)
+            getVectorSize() == 2 -> AssemblerInstrNode(vectors.getLocation(), "reti", null)
             else -> CompoundStmt(listOf(
                 AssemblerInstrNode(vectors.getLocation(), "reti", null),
                 AssemblerInstrNode(vectors.getLocation(), "nop", null)
@@ -637,26 +637,24 @@ open class AvrRatCompiler(
                 val mainProc = getMainProc(ast)
                 if (mainProc != null) {
                     compileJump("rjmp", "main", vectors.getLocation(), v.name)
-                    if (getVectorSizeInWords() == 2) {
+                    if (getVectorSize() == 4) {
                         compileAsm("nop", vectors.getLocation())
                     }
                     continue
                 }
             }
             val node = vectors.getVectorNode(v.name) ?: defaultNode
-            val beforeSize = totalCommands
+            val beforeSize = totalBytes
             compileNode(node)
-            val nodeSize = totalCommands - beforeSize
-            if (nodeSize != getVectorSizeInWords()) {
-                errorWrongInterruptNodeSize(nodeSize, getVectorSizeInWords(), node.getLocation())
+            val nodeSize = totalBytes - beforeSize
+            if (nodeSize != getVectorSize()) {
+                errorWrongInterruptNodeSize(nodeSize/2, getVectorSize()/2, node.getLocation())
             }
-            // TODO check 2 byte size
-            //compileAssembler(node, v.name)
         }
         addLine("\n")
     }
 
-    private fun getVectorSizeInWords() = if (getDevice().flashSize <= 8 * 1024) 1 else 2
+    private fun getVectorSize() = getDevice().vectorSize
 
 
     /**
@@ -1194,24 +1192,24 @@ open class AvrRatCompiler(
     }
 
     private fun handlePadToDirective(
-        bodyStartCommands: Int,
+        bodyStartBytes: Int,
         location: SourceLocation,
         proc: ProcNode
     ) {
         val padToNode = pendingPadToNode
         if (padToNode != null) {
             val padTo = calculateConst(padToNode.args?.first()!!)
-            val bodyEndCommands = totalCommands
-            val bodyBytes = (bodyEndCommands - bodyStartCommands) * 2
+            val bodyEndBytes = totalBytes
+            val bodyBytes = bodyEndBytes - bodyStartBytes
             if (bodyBytes < padTo) {
-                val nopsNeeded = (padTo - bodyBytes) / 2
+                val nopsNeeded = (padTo - bodyBytes)/2
                 repeat(nopsNeeded) {
                     compileAsm("nop", location)
                 }
             } else {
                 val paddingWords = (bodyBytes - padTo) / 2
                 val padMsg =
-                    "\$pad_to(${paddingWords}) violated for '${proc.name}': body is ${bodyBytes} bytes, target is $padTo"
+                    $$"$pad_to($${paddingWords}) violated for '$${proc.name}': body is $${bodyBytes} bytes, target is $$padTo"
                 warning(padMsg, pendingPadToNode!!)
             }
             pendingPadToNode = null

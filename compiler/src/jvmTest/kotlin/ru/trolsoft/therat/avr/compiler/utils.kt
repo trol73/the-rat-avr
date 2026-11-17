@@ -131,6 +131,7 @@ device {
 	eeprom_size = 0x0200
 	ram_size = 0x0400
 	ram_start = 0x0060
+    vector_size = 2
 }
 
 interrupts {
@@ -419,6 +420,7 @@ registers {
 	}
 }
 """
+
 private const val mega128Dev = """
 device {
 	name = "ATmega128"
@@ -426,6 +428,7 @@ device {
 	eeprom_size = 0x1000
 	ram_size = 0x1000
 	ram_start = 0x0100
+    vector_size = 4
 }
 
 interrupts {

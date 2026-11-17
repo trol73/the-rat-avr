@@ -288,7 +288,7 @@ jobs:
             --order desc \
             --json tagName \
             --jq 'map(select(.tagName | startswith("nightly-")))
-                  | .[2:]
+                  | .[3:]
                   | .[].tagName' \
           | while IFS= read -r tag; do
               [ -z "$tag" ] && continue

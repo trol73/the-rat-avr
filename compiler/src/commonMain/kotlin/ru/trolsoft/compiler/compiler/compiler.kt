@@ -42,6 +42,8 @@ abstract class Compiler(
     private var asmGen: AsmFileGenerator? = null
     protected var totalCommands: Int = 0
     private var lastBlockCommands: Int = 0
+    protected var totalBytes: Int = 0
+    private var lastBlockBytes: Int = 0
 
     protected val vars = mutableMapOf<String, Var>()
     protected val procs = mutableMapOf<String, ProcNode>()
@@ -231,6 +233,7 @@ abstract class Compiler(
     protected fun org(offset: Int) {
         forGens { org(offset) }
         lastBlockCommands = 0
+        lastBlockBytes = 0
     }
 
     protected fun addLine(str: String) {
@@ -244,6 +247,9 @@ abstract class Compiler(
     protected fun addCommand(location: SourceLocation, cmd: AsmCmd, comment: String?, vararg args: AsmArg) {
         totalCommands++
         lastBlockCommands++
+        val cmdSize = cmd.size(*args)
+        totalBytes += cmdSize
+        lastBlockBytes += cmdSize
         forGens { addCommand(location, cmd, comment, *args) }
     }
 
@@ -319,35 +325,37 @@ abstract class Compiler(
             else -> errorWrongExpression(node)
         }
     }
+    private fun Boolean.toInt() = if (this) 1 else 0
 
-    private fun calculateBinaryOpConst(node: BinaryOperNode): Int {
+    private fun BinaryOperNode.calcConst(operation: (l: Int, t: Int) -> Int) =
+        operation(calculateConst(left), calculateConst(right))
+
+    private fun calculateBinaryOpConst(node: BinaryOperNode): Int =
         when (node.operator) {
-            Operator.PLUS -> return calculateConst(node.left) + calculateConst(node.right)
-            Operator.MINUS -> return calculateConst(node.left) - calculateConst(node.right)
-            Operator.MUL -> return calculateConst(node.left) * calculateConst(node.right)
-            Operator.DIV -> return calculateConst(node.left) / calculateConst(node.right)
-            Operator.MOD -> return calculateConst(node.left) % calculateConst(node.right)
-            Operator.SHL -> return calculateConst(node.left) shl calculateConst(node.right)
-            Operator.SHR -> return calculateConst(node.left) shr calculateConst(node.right)
-            Operator.OR -> return calculateConst(node.left) or calculateConst(node.right)
-            Operator.XOR -> return calculateConst(node.left) xor calculateConst(node.right)
-            Operator.AND -> return calculateConst(node.left) and calculateConst(node.right)
+            Operator.PLUS -> node.calcConst { l, r -> l + r }
+            Operator.MINUS -> node.calcConst { l, r -> l - r }
+            Operator.MUL -> node.calcConst { l, r -> l * r }
+            Operator.DIV -> node.calcConst { l, r -> l / r }
+            Operator.MOD -> node.calcConst { l, r -> l % r }
+            Operator.SHL -> node.calcConst { l, r -> l shl r }
+            Operator.SHR -> node.calcConst { l, r -> l shr r }
+            Operator.OR -> node.calcConst { l, r -> l or r }
+            Operator.XOR -> node.calcConst { l, r -> l xor r }
+            Operator.AND -> node.calcConst { l, r -> l and r }
 
-            Operator.LOGICAL_OR -> return if (calculateConst(node.left) != 0 || calculateConst(node.right) != 0) 1 else 0
-            Operator.LOGICAL_AND -> return if (calculateConst(node.left) != 0 && calculateConst(node.right) != 0) 1 else 0
-            Operator.EQ -> return if (calculateConst(node.left) == calculateConst(node.right)) 1 else 0
-            Operator.NOT_EQ -> return if (calculateConst(node.left) != calculateConst(node.right)) 1 else 0
-            Operator.LESS -> return if (calculateConst(node.left) < calculateConst(node.right)) 1 else 0
-            Operator.GREAT -> return if (calculateConst(node.left) > calculateConst(node.right)) 1 else 0
-            Operator.LESS_EQ -> return if (calculateConst(node.left) <= calculateConst(node.right)) 1 else 0
-            Operator.GREAT_EQ -> return if (calculateConst(node.left) >= calculateConst(node.right)) 1 else 0
+            Operator.LOGICAL_OR -> node.calcConst { l, r -> (l != 0 || r != 0).toInt() }
+            Operator.LOGICAL_AND -> node.calcConst { l, r -> (l != 0 && r != 0).toInt() }
+            Operator.EQ -> node.calcConst { l, r -> (l == r).toInt()}
+            Operator.NOT_EQ -> node.calcConst { l, r -> (l != r).toInt()}
+            Operator.LESS -> node.calcConst { l, r -> (l < r).toInt()}
+            Operator.GREAT -> node.calcConst { l, r -> (l > r).toInt()}
+            Operator.LESS_EQ -> node.calcConst { l, r -> (l <= r).toInt()}
+            Operator.GREAT_EQ -> node.calcConst { l, r -> (l >= r).toInt()}
 
             else -> errorWrongExpression(node)
-        }
     }
 
     protected fun getLastBlockCommandsCounter() = lastBlockCommands
-    fun getTotalCommandsCounter() = totalCommands
 
 
     fun warning(msg: String, node: Node) {

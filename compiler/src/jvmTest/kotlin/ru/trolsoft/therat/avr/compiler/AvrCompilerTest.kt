@@ -1173,7 +1173,7 @@ class AvrCompilerTest {
     }
 
     @Test
-    fun vectors() {
+    fun `2 bytes vectors`() {
         val r = compileCode(
             """
             #define CPU "atmega8"
@@ -1188,8 +1188,8 @@ class AvrCompilerTest {
             }
             proc main() {
             }
-        """.trimIndent()
-        )
+        """.trimIndent())
+
         r shouldHaveSize 20
         r[0] shouldBe "rjmp main"
         r[1] shouldBe "reti"
@@ -1201,10 +1201,41 @@ class AvrCompilerTest {
     }
 
     @Test
-    fun `vectors with big item`() {
+    fun `4 bytes vectors`() {
+        val r = compileCodeM128(
+            """
+            #define CPU "atmega128"
+
+            vectors {
+                RESET:
+                    jmp	main
+                INT1:
+                    r24 = 2
+                    nop
+                TIMER2_COMP:
+                    PORTB = r20
+                    nop
+            }
+            proc main() {
+            }
+        """.trimIndent())
+
+        r shouldHaveSize 70
+        r[0] shouldBe "jmp main"
+        r[1] shouldBe "reti"
+        r[2] shouldBe "nop"
+        r[3] shouldBe "ldi r24, 2"
+        r[17] shouldBe "out 0x18, r20"
+        r[18] shouldBe "nop"
+        r[19] shouldBe "reti"
+        r[20] shouldBe "nop"
+        r[69] shouldBe "main:"
+    }
+
+    @Test
+    fun `2 byte vectors with big item`() {
         shouldThrow<CompilerException> {
-            compileCode(
-                """
+            compileCode("""
             #define CPU "atmega8"
 
             vectors {
@@ -1213,13 +1244,12 @@ class AvrCompilerTest {
                 TIMER2_COMP:
                     PORTB = r20
             }
-        """.trimIndent()
-            )
+        """.trimIndent())
         }.message shouldBe "Invalid interrupt handler size. Expected 1 word but found 2 words"
     }
 
     @Test
-    fun `vectors with small item`() {
+    fun `4 bytes vectors with small item`() {
         shouldThrow<CompilerException> {
             compileCodeM128(
                 """
@@ -1231,8 +1261,7 @@ class AvrCompilerTest {
                 TIMER2_COMP:
                     PORTB = r20
             }
-        """.trimIndent()
-            )
+        """.trimIndent())
         }.message shouldBe "Invalid interrupt handler size. Expected 2 words but found 1 word"
     }
 
@@ -1242,8 +1271,7 @@ class AvrCompilerTest {
             compileM8(
                 """
                 SOMETHING                
-            """.trimIndent()
-            )
+            """.trimIndent())
         }.message shouldBe "Unexpected expression"
     }
 
@@ -1270,8 +1298,7 @@ class AvrCompilerTest {
                 waitPin2()
                 waitPin1()
             }
-        """.trimIndent()
-        )
+        """.trimIndent())
         r shouldHaveSize 12
 
         val lblLoopStart1 = r[0].removeSuffix(":")
@@ -1292,8 +1319,7 @@ class AvrCompilerTest {
         val r = compileM8(
             """
             SREG->C = PINC->1
-        """.trimIndent()
-        )
+        """.trimIndent())
         r shouldHaveSize 3
         r[0] shouldBe "bclr 0"
         r[1] shouldBe "sbic 0x13, 1"
@@ -1305,8 +1331,7 @@ class AvrCompilerTest {
         val r = compileM8(
             """
             SREG->Z = !PINC->1
-        """.trimIndent()
-        )
+        """.trimIndent())
         r shouldHaveSize 3
         r[0] shouldBe "bclr 1"
         r[1] shouldBe "sbis 0x13, 1"
@@ -1324,8 +1349,7 @@ class AvrCompilerTest {
             proc main() {
                 r24[pin1] = 1
             }
-        """.trimIndent()
-        )
+        """.trimIndent())
         r shouldHaveSize 1
         r[0] shouldBe "sbr r24, 128"
     }
@@ -1342,8 +1366,7 @@ class AvrCompilerTest {
                 proc main() {
                     r24 = b
                 }
-            """.trimIndent()
-            )
+            """.trimIndent())
         }.message shouldBe "No RAM (used 1025 from 1024 bytes)"
     }
 
@@ -1361,12 +1384,11 @@ class AvrCompilerTest {
 
     @Test
     fun `push and pop Y`() {
-        val r = compileM8(
-            """
+        val r = compileM8("""
             push    Y
             pop     Y
-        """.trimIndent()
-        )
+        """.trimIndent())
+
         r shouldHaveSize 4
         r[0] shouldBe "push r29"
         r[1] shouldBe "push r28"
@@ -1376,12 +1398,11 @@ class AvrCompilerTest {
 
     @Test
     fun `push and pop pair`() {
-        val r = compileM8(
-            """
+        val r = compileM8("""
             push    r21.r10
             pop     r21.r10
-        """.trimIndent()
-        )
+        """.trimIndent())
+
         r shouldHaveSize 4
         r[0] shouldBe "push r21"
         r[1] shouldBe "push r10"
@@ -1391,15 +1412,14 @@ class AvrCompilerTest {
 
     @Test
     fun `test ram size calculation`() {
-        val loader = TestFileLoaderStub(
-            """
+        val loader = TestFileLoaderStub("""
             #define CPU "atmega8"
             var x: byte
             var y: word
             var ab: byte[10]
             var p: ptr
-        """.trimIndent()
-        )
+        """.trimIndent())
+
         val compiler = AvrRatCompiler("", "", testConsole, loader).apply {
             deviceLoader = TestMega8LoaderStub()
             addIntelHexGenerator(Endian.LITTLE)
@@ -1513,8 +1533,7 @@ class AvrCompilerTest {
                 r21 = 0
                 ret
             }
-        """.trimIndent(), false, warningsList = warnings
-        )
+        """.trimIndent(), false, warningsList = warnings)
         warnings shouldHaveSize 1
         warnings.first() shouldBe $$"file.art:3:1: $pad_to(1) violated for 'main': body is 4 bytes, target is 2"
 
