@@ -144,8 +144,6 @@ abstract class Parser(val stream: TokenStream) {
     }
 
 
-
-
     open fun parsePrimary(): Node {
         val t = nextToken()
         return when {
@@ -717,6 +715,4 @@ abstract class Parser(val stream: TokenStream) {
     protected open fun asmRequiresComma(cmd: String, args: List<Node>): Boolean {
         return true
     }
-
-
 }

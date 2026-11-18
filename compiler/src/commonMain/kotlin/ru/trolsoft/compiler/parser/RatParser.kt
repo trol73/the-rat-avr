@@ -2,7 +2,6 @@ package ru.trolsoft.compiler.parser
 
 import ru.trolsoft.compiler.compiler.errorArrayOfPrimitivesExpected
 import ru.trolsoft.compiler.compiler.errorStructuredFieldNotFound
-import ru.trolsoft.compiler.compiler.errorWrongArraySize
 import ru.trolsoft.compiler.compiler.internalError
 import ru.trolsoft.compiler.general.*
 import ru.trolsoft.compiler.lexer.SourceLocation
@@ -12,6 +11,7 @@ import ru.trolsoft.therat.lang.*
 
 abstract class RatParser(stream: TokenStream) : Parser(stream) {
     protected val structures = mutableMapOf<String, StructuredData>()
+    protected val templates = mutableMapOf<String, TemplateNode>()
 
     protected abstract fun parseDataType(t: DataTypeToken): DataType
 
@@ -392,4 +392,7 @@ abstract class RatParser(stream: TokenStream) : Parser(stream) {
         checkNewLineOrComment()
     }
 
+    fun parseTemplate(templateToken: KeywordToken) {
+
+    }
 }

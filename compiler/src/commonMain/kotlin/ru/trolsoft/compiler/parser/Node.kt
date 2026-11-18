@@ -12,7 +12,9 @@ interface Node {
     fun getLocation(): SourceLocation
 }
 
-open class AstNode(val nodes: List<Node>) : Node {
+open class AstNode(
+    val nodes: List<Node>
+) : Node {
     operator fun get(offset: Int) = nodes[offset]
     operator fun iterator(): Iterator<Node> = nodes.iterator()
     fun size(): Int = nodes.size
@@ -398,6 +400,18 @@ data class ConstValueNode(
 ) : Node {
     override fun getLocation(): SourceLocation = loc
     override fun toString(): String = "const $name = $expr"
+}
+
+data class TemplateNode(
+    private val loc: SourceLocation,
+    val name: String,
+    val args: List<ProcArgumentNode>,
+    val body: List<Node>,
+) : Node {
+    override fun getLocation(): SourceLocation = loc
+
+    fun getArg(name: String): Node? =
+        args.firstOrNull { it.name == name } ?.expr
 }
 
 

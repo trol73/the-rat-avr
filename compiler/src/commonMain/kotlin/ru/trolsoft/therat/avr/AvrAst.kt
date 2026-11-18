@@ -5,10 +5,12 @@ import ru.trolsoft.compiler.lexer.SourceLocation
 import ru.trolsoft.compiler.parser.AstNode
 import ru.trolsoft.compiler.parser.IdentifierNode
 import ru.trolsoft.compiler.parser.Node
+import ru.trolsoft.compiler.parser.TemplateNode
 
 class AvrAstNode(
     val vectors: VectorTableNode?,
     val structures: Map<String, StructuredData>,
+    val templates: Map<String, TemplateNode>,
     nodes: List<Node>
 ) : AstNode(nodes)
 

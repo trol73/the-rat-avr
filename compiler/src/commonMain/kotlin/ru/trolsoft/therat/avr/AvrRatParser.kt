@@ -27,6 +27,7 @@ class AvrRatParser(stream: TokenStream) : RatParser(stream) {
                     "union" -> parseStructOrUnionDeclaration(StructUnion.UNION)
                     "typedef" -> parseTypedefStruct()
                     "const" -> nodes.add(parseConst(t))
+                    "template" -> parseTemplate(t)
                     else -> errorUnexpectedToken(t)
                 }
                 is LineCommentToken -> {
@@ -63,7 +64,7 @@ class AvrRatParser(stream: TokenStream) : RatParser(stream) {
                 }
             }
         }
-        return AvrAstNode(vectors, structures, nodes)
+        return AvrAstNode(vectors, structures, templates, nodes)
     }
 
     override fun parseKeyword(t: KeywordToken): Node {

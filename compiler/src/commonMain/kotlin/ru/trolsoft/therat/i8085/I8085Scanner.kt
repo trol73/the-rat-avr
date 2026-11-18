@@ -7,7 +7,7 @@ import ru.trolsoft.therat.lang.Scanner
 
 private val keywords = setOf(
     "proc", "var", "extern", "if", "else", "goto", "loop", "break", "continue", "as", "do", "while",
-    "return", "use", "inline", "saveregs", "struct", "union", "absolute", "const" // "vectors", "typedef"
+    "return", "use", "inline", "saveregs", "struct", "union", "absolute", "const", "template"
 )
 
 private val dataTypes = setOf(
