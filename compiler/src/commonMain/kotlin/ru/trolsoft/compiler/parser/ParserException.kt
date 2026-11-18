@@ -110,3 +110,7 @@ fun errorUnexpectedBracket(token: Token): Nothing {
 fun errorCommaOrCloseBracketExpected(token: Token): Nothing {
     throw ParserException("',' or '}' expected", token.location)
 }
+
+fun errorTemplateAlreadyExists(token: IdentifierToken): Nothing {
+    throw ParserException("Template '${token.name} already exists", token.location)
+}

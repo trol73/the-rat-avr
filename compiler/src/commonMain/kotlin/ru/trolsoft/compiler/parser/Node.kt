@@ -405,13 +405,10 @@ data class ConstValueNode(
 data class TemplateNode(
     private val loc: SourceLocation,
     val name: String,
-    val args: List<ProcArgumentNode>,
+    val args: List<String>,
     val body: List<Node>,
 ) : Node {
     override fun getLocation(): SourceLocation = loc
-
-    fun getArg(name: String): Node? =
-        args.firstOrNull { it.name == name } ?.expr
 }
 
 

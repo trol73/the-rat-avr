@@ -27,7 +27,7 @@ class AvrRatParser(stream: TokenStream) : RatParser(stream) {
                     "union" -> parseStructOrUnionDeclaration(StructUnion.UNION)
                     "typedef" -> parseTypedefStruct()
                     "const" -> nodes.add(parseConst(t))
-                    "template" -> parseTemplate(t)
+                    "template" -> parseTemplate()
                     else -> errorUnexpectedToken(t)
                 }
                 is LineCommentToken -> {
@@ -95,7 +95,7 @@ class AvrRatParser(stream: TokenStream) : RatParser(stream) {
             else -> throw Exception("Internal error, wrong data type: " + t.name)
         }
 
-    private fun parseProc(procToken: KeywordToken, isInline: Boolean = false): ProcNode {
+    override fun parseProc(procToken: KeywordToken, isInline: Boolean): ProcNode {
         val name = nextIdentifier()
         checkBracket('(')
         val args = parseProcArgsDefinition()

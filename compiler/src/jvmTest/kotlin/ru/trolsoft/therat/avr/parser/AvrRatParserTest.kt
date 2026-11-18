@@ -2,6 +2,8 @@ package ru.trolsoft.therat.avr.parser
 
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.matchers.collections.shouldHaveSize
+import io.kotest.matchers.maps.shouldHaveSize
+import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
 import io.kotest.matchers.types.shouldBeInstanceOf
@@ -510,9 +512,30 @@ class AvrRatParserTest {
             }
         }
     }
+
+    @Test fun `simple template`() {
+        val parser = parser(
+            """
+                template my_template(name, reg) {
+                    proc name() {
+                        reg = 0
+                        ret
+                    }
+                }
+            """.trimIndent()).apply {
+                parse()
+        }
+        parser.templates shouldHaveSize 1
+        with (parser.templates.get("my_template").shouldNotBeNull()) {
+            name shouldBe "my_template"
+            args shouldBe listOf("name", "reg")
+            body shouldHaveSize 1
+            body.first().shouldBeInstanceOf<ProcNode>().name shouldBe "name"
+        }
+    }
 }
 
-class TestFileLoaderStub(private val text: String) : FileLoader {
+internal class TestFileLoaderStub(private val text: String) : FileLoader {
     override fun loadSource(path: String): TokenStream {
         val scanner = AvrScanner()
         val buf = Buffer().apply { write(text.toByteArray()) }
@@ -520,10 +543,13 @@ class TestFileLoaderStub(private val text: String) : FileLoader {
     }
 }
 
-fun parse(s: String, removeWhitespace: Boolean = false): AvrAstNode {
+internal fun parse(s: String, removeWhitespace: Boolean = false): AvrAstNode {
     val stream = TestFileLoaderStub(s).loadSource("")
     if (removeWhitespace) {
         stream.remove { it is NewLineToken || it is LineCommentToken || it is BlockCommentToken }
     }
     return AvrRatParser(stream).parse()
 }
+
+internal fun parser(s: String): AvrRatParser =
+    AvrRatParser(TestFileLoaderStub(s).loadSource(""))

@@ -11,9 +11,10 @@ import ru.trolsoft.therat.lang.*
 
 abstract class RatParser(stream: TokenStream) : Parser(stream) {
     protected val structures = mutableMapOf<String, StructuredData>()
-    protected val templates = mutableMapOf<String, TemplateNode>()
+    val templates = mutableMapOf<String, TemplateNode>()
 
     protected abstract fun parseDataType(t: DataTypeToken): DataType
+    protected abstract fun parseProc(procToken: KeywordToken, isInline: Boolean = false): ProcNode
 
     override fun parseFuncCallArgument(): Node {
         val first = parseExpression()
@@ -392,7 +393,43 @@ abstract class RatParser(stream: TokenStream) : Parser(stream) {
         checkNewLineOrComment()
     }
 
-    fun parseTemplate(templateToken: KeywordToken) {
+    fun parseTemplate() {
+        val name = nextIdentifier()
+        if (templates.keys.contains(name.name)) {
+            errorTemplateAlreadyExists(name)
+        }
+        checkBracket('(')
+        val args = mutableListOf<String>()
+        val nodes = mutableListOf<Node>()
+        while (true) {
+            val nameOrBracket = nextToken()
+            if (nameOrBracket.isBracket(')')) {
+                break
+            } else if (nameOrBracket is IdentifierToken) {
+                val argName = nameOrBracket.name
+                if (args.contains(argName)) {
+                    errorDuplicateMember(nameOrBracket)
+                }
+                args.add(argName)
+            }
+        }
 
+        skipWhitespace()
+        checkBracket('{')
+        while (true) {
+            skipWhitespace()
+            val next = nextToken()
+            if (next.isBracket('}')) {
+                break
+            } else if (next is KeywordToken && next.name == "proc") {
+                val p = parseProc(next, false)
+                nodes.add(p)
+            } else {
+                errorUnexpectedToken(next)
+            }
+        }
+        val template = TemplateNode(name.location, name.name, args, nodes)
+        templates[name.name] = template
     }
+
 }

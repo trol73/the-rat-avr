@@ -1,6 +1,8 @@
 package ru.trolsoft.therat.i8085.parser
 
 import io.kotest.matchers.collections.shouldHaveSize
+import io.kotest.matchers.maps.shouldHaveSize
+import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
 import org.junit.jupiter.api.Test
@@ -12,9 +14,7 @@ import ru.trolsoft.therat.i8085.I8085AstNode
 import ru.trolsoft.therat.i8085.I8085RatParser
 import ru.trolsoft.therat.i8085.I8085Scanner
 import kotlinx.io.Buffer
-import ru.trolsoft.therat.lang.BlockCommentToken
-import ru.trolsoft.therat.lang.LineCommentToken
-import ru.trolsoft.therat.lang.NewLineToken
+import ru.trolsoft.compiler.parser.ProcNode
 
 class I8085RatParserTest {
     @Test
@@ -64,6 +64,27 @@ class I8085RatParserTest {
             dataType shouldBe DataType.BYTE
         }
     }
+
+    @Test fun `simple template`() {
+        val parser = parser(
+            """
+                template my_template(name, reg) {
+                    proc name() {
+                        reg = 0
+                        ret
+                    }
+                }
+            """.trimIndent()).apply {
+            parse()
+        }
+        parser.templates shouldHaveSize 1
+        with (parser.templates.get("my_template").shouldNotBeNull()) {
+            name shouldBe "my_template"
+            args shouldBe listOf("name", "reg")
+            body shouldHaveSize 1
+            body.first().shouldBeInstanceOf<ProcNode>().name shouldBe "name"
+        }
+    }
 }
 
 class TestFileLoaderStub(private val text: String) : FileLoader {
@@ -73,10 +94,9 @@ class TestFileLoaderStub(private val text: String) : FileLoader {
         return TokenStream(scanner.scan(path, buf).toMutableList(), path)
     }
 }
-fun parse(s: String, removeWhitespace: Boolean = false): I8085AstNode {
-    val stream = TestFileLoaderStub(s).loadSource("")
-    if (removeWhitespace) {
-        stream.remove { it is NewLineToken || it is LineCommentToken || it is BlockCommentToken }
-    }
-    return I8085RatParser(stream).parse()
-}
+
+internal fun parser(s: String) =
+    I8085RatParser(TestFileLoaderStub(s).loadSource(""))
+
+internal fun parse(s: String): I8085AstNode =
+    parser(s).parse()
