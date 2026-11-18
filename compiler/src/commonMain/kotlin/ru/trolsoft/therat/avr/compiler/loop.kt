@@ -17,14 +17,15 @@ internal fun AvrRatCompiler.compileLoop(loop: LoopNode) {
                 compileJump("rjmp", cycle.startLabel, loop.getLocation())
             }
             is Pair<*, *> -> {
-                val (cond, termInstr) = until as Pair<BinaryOperNode, Any?>
+                val (cond, termInstr) = until as Pair<Node, Any?>
                 if (termInstr is String) {
                     // Handle: loop { if (condition) ret/ijmp }
                     // Emit: body; if (!condition) rjmp start; ret/ijmp; end:
                     compileTerminalJumpCondition(cond, cycle.startLabel, termInstr, loop.getLocation())
                 } else {
                     // Handle: loop { if (condition) break }
-                    val revertedCondition = cond.revert()
+                    val revertedCondition = if (cond is BinaryOperNode) cond.revert()
+                        else PrefixOperNode(cond.getLocation(), Operator.LOGICAL_NOT, cond)
                     compileIf(IfNode(
                         cond.getLocation(),
                         revertedCondition,
@@ -108,66 +109,10 @@ internal fun AvrRatCompiler.compileLoop(loop: LoopNode) {
     }
 }
 
-private fun AvrRatCompiler.compileTerminalJumpCondition(cond: BinaryOperNode, startLabel: String, termInstr: String, location: SourceLocation) {
-    val left = resolveArg(cond.left)
-    val right = resolveArg(cond.right)
-    when {
-        left is RegisterNode && right is NumberNode -> {
-            val invOp = inverseBinaryCompareOperation(cond.operator, cond.getLocation())
-            compileIfRegValue(invOp, left, right, startLabel, false, cond.getLocation())
-        }
-        left is RegisterNode && right is RegisterNode -> {
-            val invOp = inverseBinaryCompareOperation(cond.operator, cond.getLocation())
-            compileIfRegRegOrGroups(invOp, left, right, startLabel, false, cond.getLocation())
-        }
-        left is RegisterGroupNode && right is NumberNode -> {
-            val invOp = inverseBinaryCompareOperation(cond.operator, cond.getLocation())
-            compileIfRegRegOrGroups(invOp, left, right, startLabel, false, cond.getLocation())
-        }
-        left is RegisterGroupNode && right is RegisterGroupNode -> {
-            val invOp = inverseBinaryCompareOperation(cond.operator, cond.getLocation())
-            compileIfRegRegOrGroups(invOp, left, right, startLabel, false, cond.getLocation())
-        }
-        left is PrefixOperNode && (left.operator == Operator.INC || left.operator == Operator.DEC) -> {
-            compileSuffixOp(SuffixOperNode(left.operator, left.expression))
-            val condWithoutPrefix = BinaryOperNode(
-                cond.getLocation(),
-                cond.operator,
-                left.expression,
-                right
-            )
-            val left2 = resolveArg(condWithoutPrefix.left)
-            val right2 = resolveArg(condWithoutPrefix.right)
-            val invOp = inverseBinaryCompareOperation(cond.operator, cond.getLocation())
-            when {
-                left2 is RegisterNode && right2 is NumberNode -> {
-                    compileIfRegValue(invOp, left2, right2, startLabel, false, cond.getLocation())
-                }
-                left2 is RegisterNode && right2 is RegisterNode -> {
-                    compileIfRegRegOrGroups(invOp, left2, right2, startLabel, false, cond.getLocation())
-                }
-                else -> {
-                    val ifNode = IfNode(
-                        cond.getLocation(),
-                        PrefixOperNode(cond.getLocation(), Operator.LOGICAL_NOT, condWithoutPrefix),
-                        GotoNode(cond.getLocation(), startLabel),
-                        null
-                    )
-                    compileIf(ifNode)
-                }
-            }
-        }
-        else -> {
-            val ifNode = IfNode(
-                cond.getLocation(),
-                PrefixOperNode(cond.getLocation(), Operator.LOGICAL_NOT, cond),
-                GotoNode(cond.getLocation(), startLabel),
-                null
-            )
-            compileIf(ifNode)
-        }
-    }
-    val termNode = AssemblerInstrNode(cond.getLocation(), termInstr, null)
+private fun AvrRatCompiler.compileTerminalJumpCondition(cond: Node, startLabel: String, termInstr: String, location: SourceLocation) {
+    val ifNode = IfNode(location, PrefixOperNode(location, Operator.LOGICAL_NOT, cond), GotoNode(location, startLabel), null)
+    compileIf(ifNode)
+    val termNode = AssemblerInstrNode(location, termInstr, null)
     compileAssembler(termNode)
 }
 
@@ -262,7 +207,7 @@ private fun AvrRatCompiler.optimizeVoidConditionBody(body: Node): Pair<Node, Any
 
             val termInstr = unpackedThen.getTerminalInstruction()
             if (termInstr != null && lastIf.hasEmptyElseBlock()) {
-                return Pair(body.removeLast(), lastIf.cond as BinaryOperNode to termInstr)
+                return Pair(body.removeLast(), lastIf.cond to termInstr)
             }
         }
     }
@@ -323,7 +268,9 @@ private fun BinaryOperNode.revert() =
     BinaryOperNode(getLocation(), inverseBinaryCompareOperation(operator, getLocation()), left, right)
 
 private fun Node.getTerminalInstruction(): String? = when (this) {
-    is AssemblerInstrNode -> if (instr == "ret" || instr == "ijmp") instr else null
+    is AssemblerInstrNode ->
+        if (instr == "ret" || instr == "ijmp" || instr == "reti" || instr == "jmp"
+            || instr == "rjmp" || instr == "eijmp") instr else null
     else -> null
 }
 

@@ -685,6 +685,96 @@ class AvrLoopCompilerTest {
         r[8] shouldBe  "$lblLoopEnd:"
     }
 
+    @Test fun `loop with if (!reg_bit) ret`() {
+        val r = compileM8("""
+            loop {
+                rcall   main
+                if (!r15[1]) ret
+            }
+        """.trimIndent())
+
+        r shouldHaveSize 6
+        val lblStart = r[0].removeSuffix(":")
+        r[0] shouldEndWith "$lblStart:"
+        r[1] shouldBe "rcall main"
+        r[2] shouldBe "sbrc r15, 1"
+        r[3] shouldBe "rjmp $lblStart"
+        r[4] shouldBe "ret"
+        r[5] shouldEndWith ":"
+    }
+
+    @Test fun `loop with if (reg_bit) ret`() {
+        val r = compileM8("""
+            loop {
+                rcall   main
+                if (r15[1]) ret
+            }
+        """.trimIndent())
+
+        r shouldHaveSize 6
+        val lblStart = r[0].removeSuffix(":")
+        r[0] shouldEndWith "$lblStart:"
+        r[1] shouldBe "rcall main"
+        r[2] shouldBe "sbrs r15, 1"
+        r[3] shouldBe "rjmp $lblStart"
+        r[4] shouldBe "ret"
+        r[5] shouldEndWith ":"
+    }
+
+    @Test fun `loop with if (io_bit) ret`() {
+        val r = compileM8("""
+            loop {
+                rcall   main
+                if (ADCSRA->ADPS0) ret
+            }
+        """.trimIndent())
+
+        r shouldHaveSize 6
+        val lblStart = r[0].removeSuffix(":")
+        r[0] shouldEndWith "$lblStart:"
+        r[1] shouldBe "rcall main"
+        r[2] shouldBe "sbis 0x6, 0"
+        r[3] shouldBe "rjmp $lblStart"
+        r[4] shouldBe "ret"
+        r[5] shouldEndWith ":"
+    }
+
+    @Test fun `loop with if (!io_bit) ret`() {
+        val r = compileM8("""
+            loop {
+                rcall   main
+                if (ADCSRA->ADPS0) ret
+            }
+        """.trimIndent())
+
+        r shouldHaveSize 6
+        val lblStart = r[0].removeSuffix(":")
+        r[0] shouldEndWith "$lblStart:"
+        r[1] shouldBe "rcall main"
+        r[2] shouldBe "sbis 0x6, 0"
+        r[3] shouldBe "rjmp $lblStart"
+        r[4] shouldBe "ret"
+        r[5] shouldEndWith ":"
+    }
+
+    @Test fun `loop with if (!io_bit) reti`() {
+        val r = compileM8("""
+            loop {
+                rcall   main
+                if (ADCSRA->ADPS0) reti
+            }
+        """.trimIndent())
+r.forEach { println(it) }
+        r shouldHaveSize 6
+        val lblStart = r[0].removeSuffix(":")
+        r[0] shouldEndWith "$lblStart:"
+        r[1] shouldBe "rcall main"
+        r[2] shouldBe "sbis 0x6, 0"
+        r[3] shouldBe "rjmp $lblStart"
+        r[4] shouldBe "reti"
+        r[5] shouldEndWith ":"
+    }
+
 //    @Test fun `trivial loop with continue`() {
 //        val r = compileM8("""
 //            loop {
