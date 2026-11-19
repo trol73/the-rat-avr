@@ -891,6 +891,24 @@ class AvrGccOutputTest {
         res[10] shouldBe "rcall delay"
     }
 
+    @Test fun `loop with compare regs and jump`() {
+        val r = compileM8(
+            """
+            loop {
+               if (ZL != ZH) {
+                  rjmp main
+               }
+            }
+            """.trimIndent())
+
+        val lblStart = r[0].removeSuffix(":")
+        r[0] shouldBe "$lblStart:"
+        r[1] shouldBe "cp R30, R31"
+        r[2] shouldBe "breq $lblStart"
+        r[3] shouldBe "rjmp main"
+        r[4] shouldEndWith ":"
+    }
+
     private fun compile(code: String): List<String> = compileCode(code, true)
 
     private fun compileM8(expr: String, initCode: String = ""): List<String> {

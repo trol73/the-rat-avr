@@ -764,7 +764,7 @@ class AvrLoopCompilerTest {
                 if (ADCSRA->ADPS0) reti
             }
         """.trimIndent())
-r.forEach { println(it) }
+
         r shouldHaveSize 6
         val lblStart = r[0].removeSuffix(":")
         r[0] shouldEndWith "$lblStart:"
@@ -772,6 +772,44 @@ r.forEach { println(it) }
         r[2] shouldBe "sbis 0x6, 0"
         r[3] shouldBe "rjmp $lblStart"
         r[4] shouldBe "reti"
+        r[5] shouldEndWith ":"
+    }
+
+    @Test fun `loop with compare regs and jump`() {
+        val r = compileM8("""
+            loop {
+               if (ZL != ZH) {
+                  rjmp main
+               }
+            }
+            """.trimIndent())
+        
+        r shouldHaveSize 5
+        val lblStart = r[0].removeSuffix(":")
+        r[0] shouldBe "$lblStart:"
+        r[1] shouldBe "cp r30, r31"
+        r[2] shouldBe "breq $lblStart"
+        r[3] shouldBe "rjmp main"
+        r[4] shouldEndWith ":"
+    }
+
+    @Test fun `loop with compare regs and jump and nop`() {
+        val r = compileM8("""
+            loop {
+               if (ZL != ZH) {
+                  rjmp main
+               }
+               nop
+            }
+            """.trimIndent())
+
+        r shouldHaveSize 6
+        val lblStart = r[0].removeSuffix(":")
+        r[0] shouldBe "$lblStart:"
+        r[1] shouldBe "cpse r30, r31"
+        r[2] shouldBe "rjmp main"
+        r[3] shouldBe "nop"
+        r[4] shouldBe "rjmp $lblStart"
         r[5] shouldEndWith ":"
     }
 

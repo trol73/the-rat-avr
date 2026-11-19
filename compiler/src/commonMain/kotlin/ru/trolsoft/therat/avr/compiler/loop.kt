@@ -17,20 +17,30 @@ internal fun AvrRatCompiler.compileLoop(loop: LoopNode) {
                 compileJump("rjmp", cycle.startLabel, loop.getLocation())
             }
             is Pair<*, *> -> {
-                val (cond, termInstr) = until as Pair<Node, Any?>
-                if (termInstr is String) {
-                    // Handle: loop { if (condition) ret/ijmp }
-                    // Emit: body; if (!condition) rjmp start; ret/ijmp; end:
-                    compileTerminalJumpCondition(cond, cycle.startLabel, termInstr, loop.getLocation())
-                } else {
-                    // Handle: loop { if (condition) break }
-                    val revertedCondition = if (cond is BinaryOperNode) cond.revert()
-                        else PrefixOperNode(cond.getLocation(), Operator.LOGICAL_NOT, cond)
-                    compileIf(IfNode(
-                        cond.getLocation(),
-                        revertedCondition,
-                        GotoNode(cond.getLocation(), cycle.startLabel), null
-                    ))
+                val cond = until.first as Node
+                when (val second = until.second) {
+                    is AssemblerInstrNode -> {
+                        // Handle: loop { if (condition) ret/rjmp/ijmp }
+                        // Emit: body; if (!condition) rjmp start; ret/rjmp/ijmp; end:
+                        compileTerminalJumpCondition(cond, cycle.startLabel, second, loop.getLocation())
+                    }
+                    is Boolean -> {
+                        // Handle: loop { ...; if (condition) break }
+                        // Emit: body; if (!condition) rjmp start; end:
+                        val revertedCondition = PrefixOperNode(
+                            loop.getLocation(),
+                            Operator.LOGICAL_NOT,
+                            cond
+                        )
+                        compileIf(IfNode(
+                            loop.getLocation(),
+                            revertedCondition,
+                            GotoNode(loop.getLocation(), cycle.startLabel), null
+                        ))
+                    }
+                    else -> {
+                        internalError()
+                    }
                 }
             }
 
@@ -109,11 +119,10 @@ internal fun AvrRatCompiler.compileLoop(loop: LoopNode) {
     }
 }
 
-private fun AvrRatCompiler.compileTerminalJumpCondition(cond: Node, startLabel: String, termInstr: String, location: SourceLocation) {
+private fun AvrRatCompiler.compileTerminalJumpCondition(cond: Node, startLabel: String, termInstrNode: AssemblerInstrNode, location: SourceLocation) {
     val ifNode = IfNode(location, PrefixOperNode(location, Operator.LOGICAL_NOT, cond), GotoNode(location, startLabel), null)
     compileIf(ifNode)
-    val termNode = AssemblerInstrNode(location, termInstr, null)
-    compileAssembler(termNode)
+    compileAssembler(termInstrNode)
 }
 
 private fun AvrRatCompiler.checkAndCompileAssignOp(condition: BinaryOperNode, maxVal: Int) {
@@ -140,9 +149,8 @@ private fun AvrRatCompiler.checkAndCompileAssignOp(condition: BinaryOperNode, ma
 
 
 /**
- * Возвращает пару тело цикла + операция перехода в его начало.
- * Pair<BinaryOperNode, String?> где String? = terminal instruction ("ret"/"ijmp") или null для break
- * IoPortBitNode, RegisterBitNode, PrefixOperNode - для break
+ * Возвращает пару тело цикла + терминальная инструкция.
+ * Pair<Node, AssemblerInstrNode> где AssemblerInstrNode = terminal instruction ("ret"/"rjmp"/"ijmp")
  */
 private fun AvrRatCompiler.compileLoopBody(loop: LoopNode): Pair<CycleBlock, Any?> {
     val startLabel = addProcLabel("loop", loop.getLocation(), true)
@@ -205,9 +213,9 @@ private fun AvrRatCompiler.optimizeVoidConditionBody(body: Node): Pair<Node, Any
                 }
             }
 
-            val termInstr = unpackedThen.getTerminalInstruction()
-            if (termInstr != null && lastIf.hasEmptyElseBlock()) {
-                return Pair(body.removeLast(), lastIf.cond to termInstr)
+            val termInstrNode = unpackedThen.getTerminalInstruction()
+            if (termInstrNode != null && lastIf.hasEmptyElseBlock()) {
+                return Pair(body.removeLast(), lastIf.cond to termInstrNode)
             }
         }
     }
@@ -267,10 +275,10 @@ private fun AvrRatCompiler.compileLoopIoBit(loop: LoopNode, ioBit: IoPortBitNode
 private fun BinaryOperNode.revert() =
     BinaryOperNode(getLocation(), inverseBinaryCompareOperation(operator, getLocation()), left, right)
 
-private fun Node.getTerminalInstruction(): String? = when (this) {
+private fun Node.getTerminalInstruction(): AssemblerInstrNode? = when (this) {
     is AssemblerInstrNode ->
         if (instr == "ret" || instr == "ijmp" || instr == "reti" || instr == "jmp"
-            || instr == "rjmp" || instr == "eijmp") instr else null
+            || instr == "rjmp" || instr == "eijmp") this else null
     else -> null
 }
 
