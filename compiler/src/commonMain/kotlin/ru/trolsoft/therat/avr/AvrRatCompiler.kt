@@ -1468,12 +1468,18 @@ open class AvrRatCompiler(
                         }
                     }
                 } else if (arg.operator == Operator.MINUS) {
-                    if (argLeft is VariableNode && argRight is NumberNode) {
-                        ArgNumber(getVariableAddress(argLeft.variable) - argRight.value)
-                    } else if (argLeft is ResolvedExternVar && argRight is NumberNode) {
-                        ArgExternWithOffset(argLeft.name, -argRight.value)
-                    } else {
-                        errorUnexpectedArgument(arg)
+                    when (argLeft) {
+                        is VariableNode if argRight is NumberNode -> {
+                            ArgNumber(getVariableAddress(argLeft.variable) - argRight.value)
+                        }
+
+                        is ResolvedExternVar if argRight is NumberNode -> {
+                            ArgExternWithOffset(argLeft.name, -argRight.value)
+                        }
+
+                        else -> {
+                            errorUnexpectedArgument(arg)
+                        }
                     }
                 } else {
                     errorUnexpectedArgument(arg)
@@ -1913,18 +1919,18 @@ open class AvrRatCompiler(
 
 
     fun isSingleInstructionNode(node: Node): Boolean =
-        when {
-            node is AssemblerInstrNode -> true
-            node is SuffixOperNode && node.operator.isDecOrInc() -> {
+        when (node) {
+            is AssemblerInstrNode -> true
+            is SuffixOperNode if node.operator.isDecOrInc() -> {
                 isSingleInstructionIncDec(node.expression)
             }
 
-            node is PrefixOperNode && node.operator.isDecOrInc() -> {
+            is PrefixOperNode if node.operator.isDecOrInc() -> {
                 isSingleInstructionIncDec(node.expression)
             }
 
-            node is CompoundStmt && node.size() == 1 -> isSingleInstructionNode(node[0])
-            node is BinaryOperNode -> {
+            is CompoundStmt if node.size() == 1 -> isSingleInstructionNode(node[0])
+            is BinaryOperNode -> {
                 val left = resolveArg(node.left)
                 val right = resolveArg(node.right)
                 when (left) {

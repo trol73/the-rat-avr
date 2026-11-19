@@ -267,7 +267,7 @@ abstract class Compiler(
     protected fun addWord(b: Int, location: SourceLocation) {
         val v = if (b >= -32768 && b <= 32767) {
             b and 0xffff
-        } else if (b < 0 || b > 0xffff) {
+        } else if (b !in 0..0xffff) {
             errorLimitedValueExpected("Word", location)
         } else {
             b
@@ -883,4 +883,3 @@ private fun errorEncodingNotFound(name: StringLiteralNode): Nothing {
 internal fun errorLimitedValueExpected(type: String, loc: SourceLocation): Nothing {
     throw CompilerException("$type value expected", loc)
 }
-
