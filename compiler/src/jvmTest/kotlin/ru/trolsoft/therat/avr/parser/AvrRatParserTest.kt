@@ -526,11 +526,10 @@ class AvrRatParserTest {
                 parse()
         }
         parser.templates shouldHaveSize 1
-        with (parser.templates.get("my_template").shouldNotBeNull()) {
+        with (parser.templates["my_template"].shouldNotBeNull()) {
             name shouldBe "my_template"
             args shouldBe listOf("name", "reg")
-            body shouldHaveSize 1
-            body.first().shouldBeInstanceOf<ProcNode>().name shouldBe "name"
+            body shouldHaveSize 15
         }
     }
 }

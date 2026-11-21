@@ -55,7 +55,7 @@ class AvrRatParser(stream: TokenStream) : RatParser(stream) {
                     val struct = structures[t.name]
                     if (struct != null) {
                         nodes.add(parseStructuredDataBlock(struct, t.location))
-                    } else {
+                    } else if (!tryProcessTemplate(t)) {
                         errorUnexpectedToken(t)
                     }
                 }

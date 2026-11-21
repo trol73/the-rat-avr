@@ -400,7 +400,6 @@ abstract class RatParser(stream: TokenStream) : Parser(stream) {
         }
         checkBracket('(')
         val args = mutableListOf<String>()
-        val nodes = mutableListOf<Node>()
         while (true) {
             val nameOrBracket = nextToken()
             if (nameOrBracket.isBracket(')')) {
@@ -416,20 +415,76 @@ abstract class RatParser(stream: TokenStream) : Parser(stream) {
 
         skipWhitespace()
         checkBracket('{')
+        var bracketCode = 1
+        val tokens = mutableListOf<Token>()
         while (true) {
-            skipWhitespace()
             val next = nextToken()
             if (next.isBracket('}')) {
-                break
-            } else if (next is KeywordToken && next.name == "proc") {
-                val p = parseProc(next, false)
-                nodes.add(p)
-            } else {
-                errorUnexpectedToken(next)
+                bracketCode--
+                if (bracketCode == 0) {
+                    break
+                }
+            } else if (next.isBracket('{')) {
+                bracketCode++
             }
+            tokens.add(next)
         }
-        val template = TemplateNode(name.location, name.name, args, nodes)
+        val template = TemplateNode(name.location, name.name, args, tokens)
         templates[name.name] = template
     }
 
+    protected fun tryProcessTemplate(name: IdentifierToken): Boolean {
+        val template = templates[name.name] ?: return false
+        val args = parseTemplateImplArgs()
+        stream.append(implementTemplate(template, args))
+        return true
+    }
+
+    private fun parseTemplateImplArgs(): Map<String, List<Token>> {
+        nextBracket('(')
+        val args = mutableMapOf<String, List<Token>>()
+        while (true) {
+            val nameOrBracket = nextToken()
+            if (nameOrBracket.isBracket(')')) {
+                break
+            }
+            if (nameOrBracket !is IdentifierToken) {
+                errorIdentifierExpected(nameOrBracket)
+            }
+            val argName = nameOrBracket.name
+            if (args.contains(argName)) {
+                errorDuplicateMember(nameOrBracket)
+            }
+            val tokens = mutableListOf<Token>()
+            args[nameOrBracket.name] = tokens
+
+            checkColon()
+            while (true) {
+                val next = nextToken()
+                if (next.isBracket(')')) {
+                    unreadLast()
+                    break
+                } else if (next is CommaToken) {
+                    break
+                }
+                tokens.add(next)
+            }
+        }
+        return args
+    }
+
+    private fun implementTemplate(template: TemplateNode, args: Map<String, List<Token>>): MutableList<Token> {
+        val tokens = mutableListOf<Token>()
+        for (t in template.body) {
+            if (t is IdentifierToken) {
+                val v = args[t.name]
+                if (v != null) {
+                    tokens.addAll(v)
+                    continue
+                }
+            }
+            tokens.add(t)
+        }
+        return tokens
+    }
 }

@@ -6,9 +6,13 @@ import ru.trolsoft.therat.lang.Token
 import ru.trolsoft.therat.lang.strTokens
 import ru.trolsoft.compiler.utils.Stack
 
-class TokenStream(root: MutableList<Token>, val path: String) {
+class TokenStream(
+    root: MutableList<Token>,
+    val path: String
+) {
 
     data class Group(val tokens: MutableList<Token>, val pos: Int)
+
     class State(
         var pos: Int,
         var lastIndex: Int,
@@ -165,5 +169,9 @@ class TokenStream(root: MutableList<Token>, val path: String) {
 
         history.clear()
         state.history.copyTo(history)
+    }
+
+    fun append(tl: List<Token>) {
+        tokens.addAll(tl)
     }
 }

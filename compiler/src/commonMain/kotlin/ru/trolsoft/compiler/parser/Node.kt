@@ -406,7 +406,7 @@ data class TemplateNode(
     private val loc: SourceLocation,
     val name: String,
     val args: List<String>,
-    val body: List<Node>,
+    val body: List<Token>,
 ) : Node {
     override fun getLocation(): SourceLocation = loc
 }

@@ -119,7 +119,10 @@ data class AssemblerToken(val name: String, override val location: SourceLocatio
 
 
 
-data class GroupToken(val tokens: MutableList<Token>, override val location: SourceLocation) : Token() {
+data class GroupToken(
+    val tokens: MutableList<Token>,
+    override val location: SourceLocation
+) : Token() {
     override fun str(): String = strTokens(tokens)
 }
 

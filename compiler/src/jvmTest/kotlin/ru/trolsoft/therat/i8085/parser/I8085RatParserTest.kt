@@ -5,6 +5,7 @@ import io.kotest.matchers.maps.shouldHaveSize
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
+import kotlinx.io.Buffer
 import org.junit.jupiter.api.Test
 import ru.trolsoft.compiler.general.DataType
 import ru.trolsoft.compiler.lexer.FileLoader
@@ -13,8 +14,6 @@ import ru.trolsoft.compiler.parser.VarDeclarationNode
 import ru.trolsoft.therat.i8085.I8085AstNode
 import ru.trolsoft.therat.i8085.I8085RatParser
 import ru.trolsoft.therat.i8085.I8085Scanner
-import kotlinx.io.Buffer
-import ru.trolsoft.compiler.parser.ProcNode
 
 class I8085RatParserTest {
     @Test
@@ -78,11 +77,10 @@ class I8085RatParserTest {
             parse()
         }
         parser.templates shouldHaveSize 1
-        with (parser.templates.get("my_template").shouldNotBeNull()) {
+        with (parser.templates["my_template"].shouldNotBeNull()) {
             name shouldBe "my_template"
             args shouldBe listOf("name", "reg")
-            body shouldHaveSize 1
-            body.first().shouldBeInstanceOf<ProcNode>().name shouldBe "name"
+            body shouldHaveSize 15
         }
     }
 }

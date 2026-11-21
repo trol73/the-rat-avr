@@ -316,16 +316,21 @@ abstract class Parser(val stream: TokenStream) {
         when {
             next is OperatorToken -> {
                 val operator = Operator.fromToken(next)
-                if (prevOp != null && prevOp.isPrefix() && prevOp.isMorePriorityThanRight(operator)) {
-                    unreadLast()
-                    return left
-                } else if (prevOp != null && prevOp == Operator.LOGICAL_NOT && next.isOperator("->")) {
-                    return BinaryOperNode(left.getLocation(), Operator.ARROW_RIGHT, left, parsePrimary())
-                } else if (operator.isBinary()) {
-                    unreadLast()
-                    return parseBinaryOperationRight(null, left)
-                } else if (operator.isSuffix()) {
-                    return SuffixOperNode(operator, left)
+                when {
+                    prevOp != null && prevOp.isPrefix() && prevOp.isMorePriorityThanRight(operator) -> {
+                        unreadLast()
+                        return left
+                    }
+                    prevOp != null && prevOp == Operator.LOGICAL_NOT && next.isOperator("->") -> {
+                        return BinaryOperNode(left.getLocation(), Operator.ARROW_RIGHT, left, parsePrimary())
+                    }
+                    operator.isBinary() -> {
+                        unreadLast()
+                        return parseBinaryOperationRight(null, left)
+                    }
+                    operator.isSuffix() -> {
+                        return SuffixOperNode(operator, left)
+                    }
                 }
             }
 //            left is NumberNode && next.isBracket('[') -> {
@@ -457,21 +462,25 @@ abstract class Parser(val stream: TokenStream) {
             if (!eof()) {
                 val nextToken = nextToken()
                 unreadLast()
-                if (nextToken is OperatorToken) {
-                    val nextOperator = Operator.fromToken(nextToken)
-                    if (nextOperator.isMorePriorityThanLeft(operator)) {
-                        if (nextOperator.isSuffix()) {
-                            right = SuffixOperNode(nextOperator, right)
-                            nextToken()
-                            end = true
-                        } else {
-                            right = parseBinaryOperationRight(operator, right)
+                when {
+                    nextToken is OperatorToken -> {
+                        val nextOperator = Operator.fromToken(nextToken)
+                        if (nextOperator.isMorePriorityThanLeft(operator)) {
+                            if (nextOperator.isSuffix()) {
+                                right = SuffixOperNode(nextOperator, right)
+                                nextToken()
+                                end = true
+                            } else {
+                                right = parseBinaryOperationRight(operator, right)
+                            }
                         }
                     }
-                } else if (nextToken.isBracket(')') || nextToken is CommaToken) {
-                    end = true
-                } else if (nextToken is NewLineToken || nextToken is LineCommentToken || nextToken is BlockCommentToken) {
-                    end = true
+                    nextToken.isBracket(')') || nextToken is CommaToken -> {
+                        end = true
+                    }
+                    nextToken is NewLineToken || nextToken is LineCommentToken || nextToken is BlockCommentToken -> {
+                        end = true
+                    }
                 }
             } else {
                 end = true
