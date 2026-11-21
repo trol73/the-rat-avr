@@ -440,13 +440,16 @@ abstract class RatParser(stream: TokenStream) : Parser(stream) {
         return true
     }
 
-    private fun parseTemplateImplArgs(): Map<String, List<Token>> {
+    private fun parseTemplateImplArgs(): Map<String, Token> {
         nextBracket('(')
-        val args = mutableMapOf<String, List<Token>>()
+        val args = mutableMapOf<String, Token>()
         while (true) {
             val nameOrBracket = nextToken()
             if (nameOrBracket.isBracket(')')) {
                 break
+            }
+            if (nameOrBracket is CommaToken) {
+                continue
             }
             if (nameOrBracket !is IdentifierToken) {
                 errorIdentifierExpected(nameOrBracket)
@@ -455,31 +458,137 @@ abstract class RatParser(stream: TokenStream) : Parser(stream) {
             if (args.contains(argName)) {
                 errorDuplicateMember(nameOrBracket)
             }
-            val tokens = mutableListOf<Token>()
-            args[nameOrBracket.name] = tokens
 
             checkColon()
-            while (true) {
-                val next = nextToken()
-                if (next.isBracket(')')) {
-                    unreadLast()
-                    break
-                } else if (next is CommaToken) {
-                    break
+
+            val firstToken = nextToken()
+            if (firstToken.isBracket('[')) {
+                val arrayTokens = mutableListOf<Token>()
+                arrayTokens.add(firstToken)  // Add '[' to mark this as an array
+                var depth = 1
+                while (depth > 0) {
+                    val token = nextToken()
+                    when {
+                        token.isBracket('[') || token.isBracket('{') || token.isBracket('(') -> {
+                            depth++
+                            arrayTokens.add(token)
+                        }
+                        token.isBracket(']') || token.isBracket('}') || token.isBracket(')') -> {
+                            depth--
+                            arrayTokens.add(token)
+                        }
+                        else -> {
+                            arrayTokens.add(token)
+                        }
+                    }
                 }
-                tokens.add(next)
+                args[argName] = GroupToken(arrayTokens, firstToken.location)
+            } else {
+                val tokens = mutableListOf<Token>()
+                tokens.add(firstToken)
+                while (true) {
+                    val next = nextToken()
+                    if (next.isBracket(')')) {
+                        unreadLast()
+                        break
+                    } else if (next is CommaToken) {
+                        break
+                    }
+                    tokens.add(next)
+                }
+                args[argName] = GroupToken(tokens, firstToken.location)
             }
         }
         return args
     }
 
-    private fun implementTemplate(template: TemplateNode, args: Map<String, List<Token>>): MutableList<Token> {
+    private fun implementTemplate(template: TemplateNode, args: Map<String, Token>): MutableList<Token> {
+        val arrayArgName = args.entries.firstOrNull { (name, token) -> 
+            (token as? GroupToken)?.tokens?.firstOrNull()?.isBracket('[') == true
+        }?.key
+        
+        return if (arrayArgName != null) {
+            // Expand arrays into multiple template instantiations
+            val allArrayArgs = args.filterValues { 
+                (it as? GroupToken)?.tokens?.firstOrNull()?.isBracket('[') == true 
+            }
+            val arrayElements = allArrayArgs.mapValues { (_, token) ->
+                extractArrayElements((token as GroupToken).tokens)
+            }
+            
+            // Verify all arrays have the same length
+            val expectedLength = arrayElements.values.first().size
+            for ((name, elements) in arrayElements) {
+                if (elements.size != expectedLength) {
+                    throw ParserException("Template array argument '$name' has ${elements.size} elements, but '${allArrayArgs.keys.first()}' has $expectedLength elements", 
+                        template.getLocation())
+                }
+            }
+            
+            val result = mutableListOf<Token>()
+            for (i in 0 until expectedLength) {
+                // Build per-iteration args
+                val iterationArgs = mutableMapOf<String, Token>()
+                for ((name, token) in args) {
+                    when {
+                        (token as? GroupToken)?.tokens?.firstOrNull()?.isBracket('[') == true -> {
+                            val elements = extractArrayElements(token.tokens)
+                            iterationArgs[name] = GroupToken(elements[i], token.location)
+                        }
+                        else -> {
+                            iterationArgs[name] = token
+                        }
+                    }
+                }
+                result.addAll(generateTemplateTokens(template, iterationArgs))
+            }
+            result
+        } else {
+            generateTemplateTokens(template, args)
+        }
+    }
+    
+    private fun extractArrayElements(tokens: List<Token>): List<MutableList<Token>> {
+        val elements = mutableListOf<MutableList<Token>>()
+        val current = mutableListOf<Token>()
+        var depth = 0
+        
+        for (token in tokens) {
+            when {
+                // Skip outer brackets entirely
+                depth == 0 && token.isBracket('[') -> {}  // Skip
+                depth == 0 && token.isBracket(']') -> {}  // Skip }
+                token.isBracket('{') || token.isBracket('(') -> {
+                    depth++
+                    current.add(token)
+                }
+                token.isBracket('}') || token.isBracket(')') -> {
+                    depth--
+                    current.add(token)
+                }
+                token is CommaToken && depth == 0 -> {
+                    elements.add(current.toMutableList())
+                    current.clear()
+                }
+                else -> {
+                    current.add(token)
+                }
+            }
+        }
+        if (current.isNotEmpty()) {
+            elements.add(current.toMutableList())
+        }
+        return elements
+    }
+    
+    private fun generateTemplateTokens(template: TemplateNode, args: Map<String, Token>): MutableList<Token> {
         val tokens = mutableListOf<Token>()
         for (t in template.body) {
             if (t is IdentifierToken) {
                 val v = args[t.name]
                 if (v != null) {
-                    tokens.addAll(v)
+                    val group = v as? GroupToken
+                    tokens.addAll(group?.tokens ?: listOf(v))
                     continue
                 }
             }
