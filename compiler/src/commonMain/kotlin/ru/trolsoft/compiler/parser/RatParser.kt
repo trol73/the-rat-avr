@@ -439,7 +439,10 @@ abstract class RatParser(
     protected fun tryProcessTemplate(name: IdentifierToken): Boolean {
         val template = templates[name.name] ?: return false
         val args = parseTemplateImplArgs()
-        stream.append(implementTemplate(template, args))
+        val impl = implementTemplate(template, args)
+        stream.markLast()
+        stream.replaceMarked(impl)
+        stream.rewindBack()
         return true
     }
 

@@ -97,4 +97,37 @@ class AvrTemplatesTest {
         r[5] shouldBe  "clr R1"
         r[6] shouldBe  "ret"
     }
+
+    @Test
+    fun `simple template before proc`() {
+        val r = compileCode("""
+            #define CPU "atmega8"
+            
+            template my_template(name, reg) {
+                proc name() {
+                    reg = 0
+                    ret
+                }
+            }
+            
+            my_template(name: _fun_clr_r24, reg: r24)
+            my_template(name: _fun_clr_r1, reg: r1)
+            
+            proc _main() {
+                nop
+                ret
+            }
+        """.trimIndent(), true)
+
+        r shouldHaveSize 10
+        r[1] shouldBe  "_fun_clr_r24:"
+        r[2] shouldBe  "clr R24"
+        r[3] shouldBe  "ret"
+        r[4] shouldBe  "_fun_clr_r1:"
+        r[5] shouldBe  "clr R1"
+        r[6] shouldBe  "ret"
+        r[7] shouldBe  "_main:"
+        r[8] shouldBe  "nop"
+        r[9] shouldBe  "ret"
+    }
 }

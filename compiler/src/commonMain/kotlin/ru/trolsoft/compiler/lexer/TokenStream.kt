@@ -171,7 +171,7 @@ class TokenStream(
         state.history.copyTo(history)
     }
 
-    fun append(tl: List<Token>) {
-        tokens.addAll(tl)
+    fun rewindBack() {
+        pos--
     }
 }
