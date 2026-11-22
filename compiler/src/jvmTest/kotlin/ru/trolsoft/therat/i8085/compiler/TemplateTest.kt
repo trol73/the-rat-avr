@@ -68,4 +68,27 @@ class TemplateTest {
         """.trimIndent())
         }.message shouldBe "Template array argument 'reg' has 2 elements, but 'name' has 3 elements"
     }
+
+    @Test
+    fun `template with extra arg arrays`() {
+        val r = compileCode($$"""
+            template my_template(name, reg) {
+                proc name() {
+                    reg = 0
+                    ret
+                }
+            }
+            
+            my_template(r: [A, B], name: _fun_clr_${r}, reg: ${r})
+        """.trimIndent())
+
+        r shouldHaveSize 6
+        r[0] shouldBe  "_fun_clr_A:"
+        r[1] shouldBe  "xra A"
+        r[2] shouldBe  "ret"
+        r[3] shouldBe  "_fun_clr_B:"
+        r[4] shouldBe  "mvi B, 0"
+        r[5] shouldBe  "ret"
+    }
+
 }

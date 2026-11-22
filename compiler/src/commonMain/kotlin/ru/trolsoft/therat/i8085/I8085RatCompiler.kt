@@ -34,7 +34,7 @@ class I8085RatCompiler(
 
     private var ast: I8085AstNode? = null
 
-    override fun parse(stream: TokenStream): AstNode = I8085RatParser(stream).parse()
+    override fun parse(stream: TokenStream): AstNode = I8085RatParser(stream, scanner).parse()
 
 
     override fun compile(ast: AstNode) {

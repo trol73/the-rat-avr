@@ -6,7 +6,10 @@ import ru.trolsoft.compiler.lexer.TokenStream
 import ru.trolsoft.compiler.parser.*
 import ru.trolsoft.therat.lang.*
 
-class AvrRatParser(stream: TokenStream) : RatParser(stream) {
+class AvrRatParser(
+    stream: TokenStream,
+    scanner: Scanner
+) : RatParser(stream, scanner) {
     private var vectors: VectorTableNode? = null
 
     override fun parse(): AvrAstNode {

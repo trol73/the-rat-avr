@@ -547,8 +547,8 @@ internal fun parse(s: String, removeWhitespace: Boolean = false): AvrAstNode {
     if (removeWhitespace) {
         stream.remove { it is NewLineToken || it is LineCommentToken || it is BlockCommentToken }
     }
-    return AvrRatParser(stream).parse()
+    return AvrRatParser(stream, AvrScanner()).parse()
 }
 
 internal fun parser(s: String): AvrRatParser =
-    AvrRatParser(TestFileLoaderStub(s).loadSource(""))
+    AvrRatParser(TestFileLoaderStub(s).loadSource(""), AvrScanner())

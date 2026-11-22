@@ -6,7 +6,10 @@ import ru.trolsoft.compiler.lexer.TokenStream
 import ru.trolsoft.compiler.parser.*
 import ru.trolsoft.therat.lang.*
 
-class I8085RatParser(stream: TokenStream) : RatParser(stream) {
+class I8085RatParser(
+    stream: TokenStream,
+    scanner: Scanner
+) : RatParser(stream, scanner) {
 
     override fun parse(): I8085AstNode {
         val nodes = mutableListOf<Node>()

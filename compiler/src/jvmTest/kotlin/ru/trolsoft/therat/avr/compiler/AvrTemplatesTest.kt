@@ -73,4 +73,28 @@ class AvrTemplatesTest {
             """.trimIndent())
         }.message shouldBe "Template array argument 'reg' has 2 elements, but 'name' has 3 elements"
     }
+
+    @Test
+    fun `template with extra arg arrays`() {
+        val r = compileCode($$"""
+            #define CPU "atmega8"
+            
+            template my_template(name, reg) {
+                proc name() {
+                    reg = 0
+                    ret
+                }
+            }
+            
+            my_template(num: [24, 1], name: _fun_clr_r${num}, reg: r${num})
+        """.trimIndent(), true)
+
+        r shouldHaveSize 7
+        r[1] shouldBe  "_fun_clr_r24:"
+        r[2] shouldBe  "clr R24"
+        r[3] shouldBe  "ret"
+        r[4] shouldBe  "_fun_clr_r1:"
+        r[5] shouldBe  "clr R1"
+        r[6] shouldBe  "ret"
+    }
 }

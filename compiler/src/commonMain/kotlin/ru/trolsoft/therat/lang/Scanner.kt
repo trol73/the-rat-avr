@@ -63,6 +63,7 @@ open class Scanner {
                 return nextToken(input)
             }
             ch == '$' && firstTokenInLine -> return processDirective(input)
+            ch == '$' -> return processTemplateVar(input, loc)
         }
         throw LexerException("Unexpected token", input.getLocation())
     }
@@ -89,20 +90,20 @@ open class Scanner {
     private fun processDigit(input: LexerInput, ch: Char): Token {
         if (ch == '0') {
             val second = input.read()
-            val base: Int = if (second == 'x' || second == 'X') {
-                16
-            } else if (second == 'b' || second == 'B') {
-                2
-            } else if (isDigit(second)) {
-                8
-            } else if (isLetter(second) && second != '_') {
-                val loc = input.getLocation()
-                throw LexerException("wrong number", loc)
-            } else {
-                input.backup()
-                val loc = input.getLocation()
-                val value = input.extractText().toInt()
-                return NumberToken(value, loc)
+            val base: Int = when {
+                second == 'x' || second == 'X' -> { 16 }
+                second == 'b' || second == 'B' -> { 2 }
+                isDigit(second) -> { 8 }
+                isLetter(second) && second != '_' -> {
+                    val loc = input.getLocation()
+                    throw LexerException("wrong number", loc)
+                }
+                else -> {
+                    input.backup()
+                    val loc = input.getLocation()
+                    val value = input.extractText().toInt()
+                    return NumberToken(value, loc)
+                }
             }
             input.readWhile { isNumberChar(it, base) || it == '_' }
             val loc = input.getLocation()
@@ -158,28 +159,35 @@ open class Scanner {
             return processSlashOperator()
         }
         val ch2 = input.read()
-        if (ch == ch2) {
-            if (ch == '>' || ch == '<') {
-                val ch3 = input.read()
-                if (ch3 != '=') {
-                    input.backup()
+        when {
+            ch == ch2 -> {
+                if (ch == '>' || ch == '<') {
+                    val ch3 = input.read()
+                    if (ch3 != '=') {
+                        input.backup()
 
+                    }
+                    return OperatorToken(input.extractText(), loc)
+                } else if (ch == '|' || ch == '&' || ch == '+' || ch == '-' || ch == '=') {
+                    return OperatorToken(input.extractText(), loc)
                 }
-                return OperatorToken(input.extractText(), loc)
-            } else if (ch == '|' || ch == '&' || ch == '+' || ch == '-' || ch == '=') {
+                input.backup()
                 return OperatorToken(input.extractText(), loc)
             }
-            input.backup()
-            return OperatorToken(input.extractText(), loc)
-        } else if (ch2 == '=') {
-            return OperatorToken(input.extractText(), loc)
-        } else if (ch == '-' && ch2 == '>') {
-            return OperatorToken(input.extractText(), loc)
-        } else if (ch == '<' && ch2 == '-') {
-            return OperatorToken(input.extractText(), loc)
+            ch2 == '=' -> {
+                return OperatorToken(input.extractText(), loc)
+            }
+            ch == '-' && ch2 == '>' -> {
+                return OperatorToken(input.extractText(), loc)
+            }
+            ch == '<' && ch2 == '-' -> {
+                return OperatorToken(input.extractText(), loc)
+            }
+            else -> {
+                input.backup()
+                return OperatorToken(input.extractText(), loc)
+            }
         }
-        input.backup()
-        return OperatorToken(input.extractText(), loc)
     }
 
     private fun processSingleQuote(input: LexerInput): CharLiteralToken {
@@ -188,9 +196,9 @@ open class Scanner {
             if (ch == '\n' || ch == '\r') {
                 input.backup()
                 input.extractText()
-                throw LexerException("Incorrect character literal", input.getLocation())
+                errorIncorrectCharLiteral(input)
             } else if (ch == '\t') {
-                throw LexerException("Incorrect character literal", input.getLocation())
+                errorIncorrectCharLiteral(input)
             }
         }
 
@@ -204,14 +212,14 @@ open class Scanner {
         checkIncorrectLiteral(ch2)
         if (ch != '\\') {
             if (ch2 != '\'') {
-                throw LexerException("Incorrect character literal", input.getLocation())
+                errorIncorrectCharLiteral(input)
             }
             val loc = input.getLocation()
             input.extractText()
             return CharLiteralToken(ch, loc)
         } else {
             if (input.read() != '\'') {
-                throw LexerException("Incorrect character literal", input.getLocation())
+                errorIncorrectCharLiteral(input)
             }
             val loc = input.getLocation()
             input.extractText()
@@ -222,10 +230,9 @@ open class Scanner {
                 '\\' -> return CharLiteralToken('\\', loc)
                 '\'' -> return CharLiteralToken('\'', loc)
             }
-            throw LexerException("Illegal escape", loc)
+            errorIllegalEscape(input)
         }
     }
-
 
     private fun processDoubleQuote(input: LexerInput): StringLiteralToken {
         val result = StringBuilder()
@@ -244,13 +251,13 @@ open class Scanner {
                             if (!isHexDigit(ch3)) {
                                 input.backup()
                                 input.extractText()
-                                throw LexerException("Illegal escape", input.getLocation())
+                                errorIllegalEscape(input)
                             }
                             val ch4 = input.read()
                             if (!isHexDigit(ch4)) {
                                 input.backup()
                                 input.extractText()
-                                throw LexerException("Illegal escape", input.getLocation())
+                                errorIllegalEscape(input)
                             }
                             result.append((ch3.toString() + ch4).toInt(16).toChar())
                         }
@@ -258,7 +265,7 @@ open class Scanner {
                         else -> {
                             input.backup()
                             input.extractText()
-                            throw LexerException("Illegal escape", input.getLocation())
+                            errorIllegalEscape(input)
                         }
                     }
                 }
@@ -332,39 +339,38 @@ open class Scanner {
                 input.backup()
             }
         }
-        return when {
-            isKeyword(str) -> {
-                if (checkKeyword(str, firstTokenInLine, assemblerLine)) {
-                    KeywordToken(str, loc)
-                } else {
-                    IdentifierToken(str, loc)
-                }
-//                if (!assemblerLine) {
-//                    KeywordToken(str, loc)
-//                } else {
-//                    IdentifierToken(str, loc)
-//                }
+        return processIdentifier(str, loc)
+    }
+
+    private fun processIdentifier(str: String, loc: SourceLocation): Token = when {
+        isKeyword(str) -> {
+            if (checkKeyword(str, firstTokenInLine, assemblerLine)) {
+                KeywordToken(str, loc)
+            } else {
+                IdentifierToken(str, loc)
             }
-            isDataType(str) -> DataTypeToken(str, loc)
-            isRegister(str) -> RegisterToken(str, loc)
-            isAssemblerInstruction(str) -> {
-                assemblerLine = true
-                AssemblerToken(str, loc)
-            }
-            else -> IdentifierToken(str, loc)
         }
+
+        isDataType(str) -> DataTypeToken(str, loc)
+        isRegister(str) -> RegisterToken(str, loc)
+        isAssemblerInstruction(str) -> {
+            assemblerLine = true
+            AssemblerToken(str, loc)
+        }
+
+        else -> IdentifierToken(str, loc)
     }
 
     private fun processGlobalLabel(input: LexerInput): GlobalLabelToken {
         val loc = input.getLocation()
         if (!isLetter(input.read())) {
-            throw LexerException("Unexpected char", loc)
+            errorUnexpectedChar(loc)
         }
         input.readWhile { isLetter(it) || isDigit(it) }
         val name = input.extractText().substring(1)
         val ch = input.read()
         if (ch != ':') {
-            throw LexerException("Unexpected char", loc)
+            errorUnexpectedChar(loc)
         }
         return GlobalLabelToken(name, loc)
     }
@@ -380,6 +386,24 @@ open class Scanner {
         return DirectiveToken(name, loc)
     }
 
+    private fun processTemplateVar(input: LexerInput, loc: SourceLocation): TemplateVarToken {
+        // $ is already in currentToken, so we need to remove it first
+        input.extractText()  // clear "$" from currentToken
+        val ch = input.read()
+        if (ch != '{') {
+            throw LexerException("Expected '{' after '$'", input.getLocation())
+        }
+        input.readWhile { isLetter(it) || isDigit(it) || it == '_' }
+        val text = input.getText()  // e.g., "{num"
+        val name = text.substring(1)  // extract "num"
+        input.extractText()  // clear buffer
+        val closing = input.read()
+        if (closing != '}') {
+            throw LexerException("Expected '}' after template variable name", input.getLocation())
+        }
+        return TemplateVarToken(name, loc)
+    }
+
     open fun isPreprocessorDirective(s: String): Boolean = preprocessorDirectives.contains(s)
 
     open fun isKeyword(s: String): Boolean = false
@@ -392,3 +416,15 @@ open class Scanner {
 private fun isOperator(ch: Char): Boolean = operators.contains(ch)
 
 private fun isBracket(ch: Char): Boolean = ch == '(' || ch == ')' || ch == '{' || ch == '}' || ch == '[' || ch == ']'
+
+private fun errorIncorrectCharLiteral(input: LexerInput): Nothing {
+    throw LexerException("Incorrect character literal", input.getLocation())
+}
+
+private fun errorIllegalEscape(input: LexerInput): Nothing {
+    throw LexerException("Illegal escape", input.getLocation())
+}
+
+private fun errorUnexpectedChar(loc: SourceLocation): Nothing {
+    throw LexerException("Unexpected char", loc)
+}

@@ -13,9 +13,6 @@ sealed class Token {
     fun isBracket(ch: Char): Boolean = this is BracketToken && this.bracket == ch
     fun isKeyword(s: String): Boolean = this is KeywordToken && this.name == s
     fun isOperator(name: String): Boolean = this is OperatorToken && this.name == name
-
-//    fun isExpressionToken(): Boolean =
-//            this is IdentifierToken || this is NumberToken || this is RegisterToken
 }
 
 data class NewLineToken(override val location: SourceLocation) : Token() {
@@ -32,18 +29,6 @@ data class NumberToken(val value: Int, override val location: SourceLocation, va
             else -> "<wrong number argument, radix= $radix>"
         }
 }
-
-//data class HexNumberToken(val value: Int, override val location: SourceLocation) : Token() {
-//    override fun str(): String = "0x" + value.toString(16)
-//}
-//
-//data class BinaryNumberToken(val value: Int, override val location: SourceLocation) : Token() {
-//    override fun str(): String = "0b" + value.toString(2)
-//}
-//
-//data class OctalNumberToken(val value: Int, override val location: SourceLocation) : Token() {
-//    override fun str(): String = "0" + value.toString(8)
-//}
 
 data class OperatorToken(val name: String, override val location: SourceLocation) : Token() {
     override fun str(): String = name
@@ -132,6 +117,10 @@ data class EmptyToken(override val location: SourceLocation) : Token() {
 
 data class DirectiveToken(val name: String, override val location: SourceLocation) : Token() {
     override fun str(): String = "$$name"
+}
+
+data class TemplateVarToken(val name: String, override val location: SourceLocation) : Token() {
+    override fun str(): String = $$"${$$name}"
 }
 
 fun strTokens(tokens: List<Token>): String {

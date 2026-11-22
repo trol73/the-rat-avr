@@ -51,7 +51,7 @@ open class AvrRatCompiler(
 
     private var ast: AvrAstNode? = null
 
-    override fun parse(stream: TokenStream): AvrAstNode = AvrRatParser(stream).parse()
+    override fun parse(stream: TokenStream): AvrAstNode = AvrRatParser(stream, scanner).parse()
 
 
     override fun compile(ast: AstNode) {

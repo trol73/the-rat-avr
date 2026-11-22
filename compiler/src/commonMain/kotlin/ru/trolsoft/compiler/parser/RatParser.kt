@@ -9,7 +9,10 @@ import ru.trolsoft.compiler.lexer.TokenStream
 import ru.trolsoft.therat.lang.*
 
 
-abstract class RatParser(stream: TokenStream) : Parser(stream) {
+abstract class RatParser(
+    stream: TokenStream,
+    private val scanner: Scanner
+) : Parser(stream) {
     protected val structures = mutableMapOf<String, StructuredData>()
     val templates = mutableMapOf<String, TemplateNode>()
 
@@ -346,7 +349,7 @@ abstract class RatParser(stream: TokenStream) : Parser(stream) {
                         break
                     }
                     unreadLast()
-                    val node = parseExpression()//parsePrimary()
+                    val node = parseExpression()
                     items.add(node)
                     var commaOrEnd = nextToken()
                     var endLine = false
@@ -536,7 +539,8 @@ abstract class RatParser(stream: TokenStream) : Parser(stream) {
                             iterationArgs[name] = GroupToken(elements[i], token.location)
                         }
                         else -> {
-                            iterationArgs[name] = token
+                            val substituted = substituteTemplateVars(token, arrayElements, i)
+                            iterationArgs[name] = substituted
                         }
                     }
                 }
@@ -548,16 +552,74 @@ abstract class RatParser(stream: TokenStream) : Parser(stream) {
         }
     }
     
+    /**
+     * Substitute ${varName} tokens in a GroupToken with values from the array.
+     * For example, if token is "r${varName}" and num[i] = 24, returns "r24".
+     */
+    private fun substituteTemplateVars(token: Token, arrayElements: Map<String, List<MutableList<Token>>>, index: Int): Token {
+        val group = token as? GroupToken ?: return token
+
+        val hasTemplateVar = group.tokens.any { it is TemplateVarToken }
+        if (!hasTemplateVar) {
+            return token
+        }
+
+        val substituted = mutableListOf<Token>()
+        for (t in group.tokens) {
+            if (t is TemplateVarToken) {
+                val varElements = arrayElements[t.name]
+                if (varElements != null && index < varElements.size) {
+                    substituted.addAll(varElements[index])
+                } else {
+                    substituted.add(t)
+                }
+            } else {
+                substituted.add(t)
+            }
+        }
+        
+        // Join all tokens into a single identifier
+        val joinedName = substituted.joinToString("") { it.str() }
+        val firstToken = substituted.first()
+
+        return when {
+            scanner.isRegister(joinedName) -> {
+                RegisterToken(joinedName, firstToken.location)
+            }
+            scanner.isDataType(joinedName) -> {
+                DataTypeToken(joinedName, firstToken.location)
+            }
+            scanner.isAssemblerInstruction(joinedName) -> {
+                AssemblerToken(joinedName, firstToken.location)
+            }
+            else -> {
+                IdentifierToken(joinedName, firstToken.location)
+            }
+        }
+    }
+    
     private fun extractArrayElements(tokens: List<Token>): List<MutableList<Token>> {
         val elements = mutableListOf<MutableList<Token>>()
         val current = mutableListOf<Token>()
         var depth = 0
-        
-        for (token in tokens) {
+
+        for ((i, token) in tokens.withIndex()) {
             when {
-                // Skip outer brackets entirely
-                depth == 0 && token.isBracket('[') -> {}  // Skip
-                depth == 0 && token.isBracket(']') -> {}  // Skip }
+                i == 0 -> {
+                    if (token.isBracket('[')) {
+                        continue
+                    } else {
+                        errorCharExpected('[', token)
+                    }
+                }
+                i == tokens.size-1 -> {
+                    if (token.isBracket(']')) {
+                        continue
+                    } else {
+                        errorCharExpected(']', token)
+                    }
+                }
+
                 token.isBracket('{') || token.isBracket('(') -> {
                     depth++
                     current.add(token)
@@ -584,15 +646,27 @@ abstract class RatParser(stream: TokenStream) : Parser(stream) {
     private fun generateTemplateTokens(template: TemplateNode, args: Map<String, Token>): MutableList<Token> {
         val tokens = mutableListOf<Token>()
         for (t in template.body) {
-            if (t is IdentifierToken) {
-                val v = args[t.name]
-                if (v != null) {
-                    val group = v as? GroupToken
-                    tokens.addAll(group?.tokens ?: listOf(v))
-                    continue
+            when (t) {
+                is IdentifierToken -> {
+                    val v = args[t.name]
+                    if (v != null) {
+                        val group = v as? GroupToken
+                        tokens.addAll(group?.tokens ?: listOf(v))
+                        continue
+                    }
+                    tokens.add(t)
                 }
+                is TemplateVarToken -> {
+                    val v = args[t.name]
+                    if (v != null) {
+                        val group = v as? GroupToken
+                        tokens.addAll(group?.tokens ?: listOf(v))
+                    } else {
+                        tokens.add(t)
+                    }
+                }
+                else -> tokens.add(t)
             }
-            tokens.add(t)
         }
         return tokens
     }

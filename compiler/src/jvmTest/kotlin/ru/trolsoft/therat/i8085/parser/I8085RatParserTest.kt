@@ -94,7 +94,7 @@ class TestFileLoaderStub(private val text: String) : FileLoader {
 }
 
 internal fun parser(s: String) =
-    I8085RatParser(TestFileLoaderStub(s).loadSource(""))
+    I8085RatParser(TestFileLoaderStub(s).loadSource(""), I8085Scanner())
 
 internal fun parse(s: String): I8085AstNode =
     parser(s).parse()
