@@ -129,66 +129,70 @@ open class Scanner {
 
     private fun processOperator(input: LexerInput, ch: Char): Token {
         val loc = input.getLocation()
-
-        fun processSlashOperator(): Token {
-            val ch1 = input.read()
-            when (ch1) {
-                '*' -> {
-                    while (true) {
-                        input.readWhile { it != '*' }
-                        val ch2 = input.read()
-                        if (ch2 == LexerInput.EOF) {
-                            throw LexerException("Unclosed comment block", loc)
-                        } else if (ch2 == '*' && input.read() == '/') {
-                            val text = input.extractText()
-                            return BlockCommentToken(text.substring(2, text.length-2), loc)
-                        }
-                    }
-                }
-                '/' -> return processLineComment(input)
-                '=' -> return OperatorToken("/=", loc)
-                else -> {
-                    input.backup()
-                    return OperatorToken(input.extractText(), loc)
-                }
-            }
-        }
-
-
         if (ch == '/') {
-            return processSlashOperator()
+            return processSlashOperator(input)
         }
         val ch2 = input.read()
-        when {
+        return when {
             ch == ch2 -> {
-                if (ch == '>' || ch == '<') {
-                    val ch3 = input.read()
-                    if (ch3 != '=') {
-                        input.backup()
-
+                when (ch) {
+                    '>', '<' -> {
+                        val ch3 = input.read()
+                        if (ch3 != '=') {
+                            input.backup()
+                        }
+                        OperatorToken(input.extractText(), loc)
                     }
-                    return OperatorToken(input.extractText(), loc)
-                } else if (ch == '|' || ch == '&' || ch == '+' || ch == '-' || ch == '=') {
-                    return OperatorToken(input.extractText(), loc)
+                    '|', '&', '+', '-', '=' -> {
+                        OperatorToken(input.extractText(), loc)
+                    }
+                    else -> {
+                        input.backup()
+                        OperatorToken(input.extractText(), loc)
+                    }
                 }
-                input.backup()
-                return OperatorToken(input.extractText(), loc)
             }
             ch2 == '=' -> {
-                return OperatorToken(input.extractText(), loc)
+                OperatorToken(input.extractText(), loc)
             }
             ch == '-' && ch2 == '>' -> {
-                return OperatorToken(input.extractText(), loc)
+                OperatorToken(input.extractText(), loc)
             }
             ch == '<' && ch2 == '-' -> {
-                return OperatorToken(input.extractText(), loc)
+                OperatorToken(input.extractText(), loc)
             }
+            else -> {
+                input.backup()
+                OperatorToken(input.extractText(), loc)
+            }
+        }
+    }
+
+    private fun processSlashOperator(input: LexerInput): Token {
+        val loc = input.getLocation()
+        val ch1 = input.read()
+        when (ch1) {
+            '*' -> {
+                while (true) {
+                    input.readWhile { it != '*' }
+                    val ch2 = input.read()
+                    if (ch2 == LexerInput.EOF) {
+                        throw LexerException("Unclosed comment block", loc)
+                    } else if (ch2 == '*' && input.read() == '/') {
+                        val text = input.extractText()
+                        return BlockCommentToken(text.substring(2, text.length-2), loc)
+                    }
+                }
+            }
+            '/' -> return processLineComment(input)
+            '=' -> return OperatorToken("/=", loc)
             else -> {
                 input.backup()
                 return OperatorToken(input.extractText(), loc)
             }
         }
     }
+
 
     private fun processSingleQuote(input: LexerInput): CharLiteralToken {
 

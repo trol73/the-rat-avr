@@ -65,26 +65,37 @@ class I8085RatParser(
         return I8085AstNode(structures, templates, nodes)
     }
 
-    override fun parseProc(procToken: KeywordToken, isInline: Boolean): ProcNode {
-        val name = nextIdentifier()
-        checkBracket('(')
-        val args = parseProcArgsDefinition()
-        val results = mutableListOf<ProcArgumentNode>()
-        // Check for results specification: -> (name: reg, ...)
-        skipWhitespace()
-        val t = nextToken()
-        if (t is OperatorToken && t.name == "->") {
-            checkBracket('(')
-            results.addAll(parseProcResultsDefinition())
-        } else {
-            stream.unreadLast(t)
+    override fun parseProcArgsDefinition(): List<ProcArgumentNode> {
+        // name: reg1, reg2, ...
+        // name: group1 | reg1, group2 | reg2, ...
+        var t = nextToken()
+        val list = mutableListOf<ProcArgumentNode>()
+        if (t.isBracket(')')) {
+            return list
         }
-        checkBracket('{')
-        val body = parseCodeBlock()
-        return ProcNode(procToken.location, name.name, args, results, body, isInline)
+        unreadLast()
+        while (true) {
+            val name = nextIdentifier()
+            checkColon()
+            val expression = when (val next = nextToken()) {
+                is RegisterToken -> parseRegisterOrGroup(next)
+                is IdentifierToken -> parseIdentifierOrGroup(next)
+                else -> errorRegisterExpected(next)
+            }
+            val arg = ProcArgumentNode(name.location, name.name, expression)
+            list.add(arg)
+            t = nextToken()
+            if (t.isBracket(')')) {
+                break
+            }
+            if (t !is CommaToken) {
+                errorCharExpected(')', t)
+            }
+        }
+        return list
     }
 
-    private fun parseProcResultsDefinition(): List<ProcArgumentNode> {
+    override fun parseProcResultsDefinition(): List<ProcArgumentNode> {
         var t = nextToken()
         val list = mutableListOf<ProcArgumentNode>()
         if (t.isBracket(')')) {
@@ -160,36 +171,4 @@ class I8085RatParser(
             "ptr" -> DataType.PTR
             else -> throw Exception("Internal error, wrong data type: " + t.name)
         }
-
-
-    private fun parseProcArgsDefinition(): List<ProcArgumentNode> {
-        // name: reg1, reg2, ...
-        // name: group1 | reg1, group2 | reg2, ...
-        var t = nextToken()
-        val list = mutableListOf<ProcArgumentNode>()
-        if (t.isBracket(')')) {
-            return list
-        }
-        unreadLast()
-        while (true) {
-            val name = nextIdentifier()
-            checkColon()
-            val expression = when (val next = nextToken()) {
-                is RegisterToken -> parseRegisterOrGroup(next)
-                is IdentifierToken -> parseIdentifierOrGroup(next)
-                else -> errorRegisterExpected(next)
-            }
-            //val expression = parseRegisterOrGroup()
-            val arg = ProcArgumentNode(name.location, name.name, expression)
-            list.add(arg)
-            t = nextToken()
-            if (t.isBracket(')')) {
-                break
-            }
-            if (t !is CommaToken) {
-                errorCharExpected(')', t)
-            }
-        }
-        return list
-    }
 }

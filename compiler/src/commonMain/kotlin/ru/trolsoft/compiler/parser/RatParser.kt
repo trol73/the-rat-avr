@@ -17,7 +17,32 @@ abstract class RatParser(
     val templates = mutableMapOf<String, TemplateNode>()
 
     protected abstract fun parseDataType(t: DataTypeToken): DataType
-    protected abstract fun parseProc(procToken: KeywordToken, isInline: Boolean = false): ProcNode
+    protected abstract fun parseProcArgsDefinition(): List<ProcArgumentNode>
+    protected abstract fun parseProcResultsDefinition(): List<ProcArgumentNode>
+
+    /**
+     * Common implementation for parsing procedure declarations.
+     * Subclasses must override parseProcArgsDefinition() and parseProcResultsDefinition()
+     * to handle architecture-specific register resolution.
+     */
+    protected fun parseProc(procToken: KeywordToken, isInline: Boolean = false): ProcNode {
+        val name = nextIdentifier()
+        checkBracket('(')
+        val args = parseProcArgsDefinition()
+        val results = mutableListOf<ProcArgumentNode>()
+        // Check for results specification: -> (name: reg, ...)
+        skipWhitespace()
+        val t = nextToken()
+        if (t is OperatorToken && t.name == "->") {
+            checkBracket('(')
+            results.addAll(parseProcResultsDefinition())
+        } else {
+            stream.unreadLast(t)
+        }
+        checkBracket('{')
+        val body = parseCodeBlock()
+        return ProcNode(procToken.location, name.name, args, results, body, isInline)
+    }
 
     override fun parseFuncCallArgument(): Node {
         val first = parseExpression()

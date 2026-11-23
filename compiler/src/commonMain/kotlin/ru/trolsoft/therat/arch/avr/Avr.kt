@@ -20,7 +20,6 @@ private val registersPairLow = setOf("r26", "r28", "r30", "xl", "yl", "zl")
 private val registersPairHigh = setOf("r27", "r29", "r31", "xh", "yh", "zh")
 private val registersPartsXYZ = setOf("xl", "xh", "yl", "yh", "zl", "zh")
 
-//fun isAvrInstruction(s: String): Boolean = instructions.contains(s.lowercase())
 fun isAvrInstruction(s: String): Boolean = instructions.contains(s)
 
 fun isAvrRegister(s: String): Boolean = registers.contains(s.lowercase())
