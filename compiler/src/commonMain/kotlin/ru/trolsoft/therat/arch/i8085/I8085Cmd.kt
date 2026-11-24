@@ -34,6 +34,7 @@ enum class ArgRegPair : AsmArg {
             }
     }
 }
+
 enum class I8085Cmd(val arg1: ArgType? = null, val arg2: ArgType? = null) : AsmCmd {
     CALL(ArgType.LABEL_ABS) {
         override fun compile(out: CompilerOutput, vararg args: AsmArg) = compileAbsolute(0xCD, out, *args)

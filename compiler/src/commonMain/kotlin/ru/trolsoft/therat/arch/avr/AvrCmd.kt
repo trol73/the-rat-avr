@@ -10,30 +10,30 @@ enum class ArgReg : AsmArg {
     R30, R31;
 
     companion object {
-        fun fromStr(s: String): ArgReg? {
+        fun fromStr(s: String): ArgReg? =
             when (s) {
-                "XL" -> return R26
-                "XH" -> return R27
-                "YL" -> return R28
-                "YH" -> return R29
-                "ZL" -> return R30
-                "ZH" -> return R31
+                "XL" -> R26
+                "XH" -> R27
+                "YL" -> R28
+                "YH" -> R29
+                "ZL" -> R30
+                "ZH" -> R31
+                else -> try {
+                    valueOf(s.uppercase())
+                } catch (_: Exception) {
+                    null
+                }
             }
-            return try {
-                valueOf(s.uppercase())
-            } catch (_: Exception) {
-                null
-            }
-        }
     }
 }
 
 enum class ArgRegPair(
-        private val str: String,
-        val high: ArgReg,
-        val low: ArgReg,
-        val prefix: Char? = null,
-        val suffix: Char? = null) : AsmArg {
+    private val str: String,
+    val high: ArgReg,
+    val low: ArgReg,
+    val prefix: Char? = null,
+    val suffix: Char? = null
+) : AsmArg {
 
     X("X", ArgReg.R27, ArgReg.R26),
     Y("Y", ArgReg.R29, ArgReg.R28),
@@ -97,14 +97,13 @@ enum class ArgRegPair(
                 else -> throw AsmCompileException("Wrong pair (high=$highNum)")
             }
         }
-
     }
 }
 
 
 class ArgOffsetPair(
-        val pair: ArgRegPair,
-        val offset: Int
+    val pair: ArgRegPair,
+    val offset: Int
 ) : AsmArg {
     override fun toString(): String = "$pair+$offset"
 }

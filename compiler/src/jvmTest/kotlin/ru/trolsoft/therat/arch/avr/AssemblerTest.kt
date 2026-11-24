@@ -12,17 +12,16 @@ import ru.trolsoft.compiler.generator.Endian
 
 
 private fun compile(cmd: AvrCmd, vararg args: AsmArg): Int {
-    val out = BinaryOutput(Endian.LITTLE)
-    out.gotoAddress(0)
     val sz = cmd.size(*args)
-    out.reserve(sz)
-    out.allocatePages()
-    out.gotoAddress(0)
+    val out = BinaryOutput(Endian.LITTLE).apply {
+        gotoAddress(0)
+        reserve(sz)
+        allocatePages()
+        gotoAddress(0)
+    }
     cmd.compile(out, *args)
     val page = out.pages[0]
     if (sz == 4) {
-//        val stream = ByteArrayOutputStream()
-//        out.saveToIntelHex(stream, 16)
         return (page[0] shl 24) + (page[1] shl 16) + (page[2] shl 8) + page[3]
     }
     sz shouldBe 2
