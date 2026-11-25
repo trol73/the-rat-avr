@@ -843,33 +843,6 @@ enum class AvrCmd(val arg1: ArgType? = null, val arg2: ArgType? = null) : AsmCmd
         return arg.ordinal - 16
     }
 
-    protected fun checkNumber(arg: AsmArg, max: Int, min: Int = 0): Int {
-        if (arg is ArgLabel) {
-            val resolved = arg.resolved ?: throw AsmCompileException("Label unresolved: $arg")
-            return checkNumber(ArgNumber(resolved), max, min)
-        }
-        return when (arg) {
-            is ArgNumber -> {
-                checkRange(arg.value, min, max)
-                arg.value
-            }
-            is DeferredNumberArg -> {
-                val resolved = arg.resolved ?: throw AsmCompileException("Argument unresolved: $arg")
-                checkNumber(ArgNumber(resolved), max, min)
-            }
-            else ->
-                throw AsmCompileException("Number expected: $arg")
-        }
-    }
-
-    protected fun checkArgsSize(number: Int, vararg args: AsmArg)  {
-        if (args.size < number) {
-            throw AsmCompileException("Argument expected")
-        } else if (args.size > number) {
-            throw AsmCompileException("Garbage after instruction: ${args[number]}")
-        }
-    }
-
     protected fun checkOneNumArg(max: Int, vararg args: AsmArg): Int {
         checkArgsSize(1, *args)
         return checkNumber(args[0], max)
@@ -955,12 +928,6 @@ enum class AvrCmd(val arg1: ArgType? = null, val arg2: ArgType? = null) : AsmCmd
         }
     }
 
-}
-
-private fun checkRange(v: Int, min: Int, max: Int) {
-    if (v !in min..max) {
-        throw AsmCompileException("Operand out of range ($min <= s <= $max): $v")
-    }
 }
 
 private fun errorWrongSyntax(): Nothing = throw AsmCompileException("Wrong syntax")

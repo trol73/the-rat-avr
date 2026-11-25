@@ -378,12 +378,13 @@ class AssemblerTest {
     }
 
     private fun compile(cmd: I8085Cmd, vararg args: AsmArg): Int {
-        val out =  BinaryOutput(Endian.LITTLE)
-        out.gotoAddress(0)
         val sz = cmd.size(*args)
-        out.reserve(sz)
-        out.allocatePages()
-        out.gotoAddress(0)
+        val out =  BinaryOutput(Endian.LITTLE).apply {
+            gotoAddress(0)
+            reserve(sz)
+            allocatePages()
+            gotoAddress(0)
+        }
         cmd.compile(out, *args)
         val page = out.pages[0]
         sz shouldBeGreaterThan 0

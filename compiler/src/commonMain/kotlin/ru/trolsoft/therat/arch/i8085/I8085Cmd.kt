@@ -390,37 +390,6 @@ enum class I8085Cmd(val arg1: ArgType? = null, val arg2: ArgType? = null) : AsmC
         out.addByte(d8)
     }
 
-
-    protected fun checkArgsSize(number: Int, vararg args: AsmArg)  {
-        if (args.size < number) {
-            throw AsmCompileException("Argument expected")
-        } else if (args.size > number) {
-            throw AsmCompileException("Garbage after instruction: ${args[number]}")
-        }
-    }
-
-    protected fun checkNumber(arg: AsmArg, max: Int, min: Int = 0): Int {
-        if (arg is ArgLabel) {
-            val resolved = arg.resolved ?: throw AsmCompileException("Label unresolved: $arg")
-            return checkNumber(ArgNumber(resolved), max, min)
-        }
-        return when (arg) {
-            is ArgNumber -> {
-                checkRange(arg.value, min, max)
-                arg.value
-            }
-            is DeferredNumberArg -> {
-                val resolved = arg.resolved ?: throw AsmCompileException("Argument unresolved: $arg")
-                checkNumber(ArgNumber(resolved), max, min)
-            }
-            else ->
-                throw AsmCompileException("Number expected: $arg")
-        }
-    }
-
-    protected fun checkByte(arg: AsmArg): Int = checkNumber(arg, 0xff)
-    protected fun checkWord(arg: AsmArg): Int = checkNumber(arg, 0xffff)
-
     protected fun registerCode(arg: AsmArg): Int {
         if (arg is ArgReg) {
             return when (arg.name) {
@@ -467,11 +436,6 @@ enum class I8085Cmd(val arg1: ArgType? = null, val arg2: ArgType? = null) : AsmC
         fun getByName(name: String): I8085Cmd? {
             return map[name.lowercase()]
         }
-    }
-}
-private fun checkRange(v: Int, min: Int, max: Int) {
-    if (v !in min..max) {
-        throw AsmCompileException("Operand out of range ($min <= s <= $max): $v")
     }
 }
 
