@@ -16,8 +16,6 @@ import ru.trolsoft.therat.arch.ArgLabel
 import ru.trolsoft.therat.arch.AsmArg
 import ru.trolsoft.therat.arch.AsmCmd
 import ru.trolsoft.therat.arch.DeferredNumberArg
-import ru.trolsoft.therat.avr.errorUnsupportedOperation
-import ru.trolsoft.therat.avr.errorValueTooBig
 import ru.trolsoft.therat.lang.IdentifierToken
 import ru.trolsoft.therat.lang.Scanner
 import ru.trolsoft.therat.preprocessor.Preprocessor
@@ -882,4 +880,24 @@ private fun errorEncodingNotFound(name: StringLiteralNode): Nothing {
 
 internal fun errorLimitedValueExpected(type: String, loc: SourceLocation): Nothing {
     throw CompilerException("$type value expected", loc)
+}
+
+internal fun errorUnsupportedOperation(location: SourceLocation): Nothing {
+    throw CompilerException("Unsupported operation", location)
+}
+
+internal fun errorUnsupportedOperation(node: Node): Nothing {
+    errorUnsupportedOperation(node.getLocation())
+}
+
+internal fun errorUnknownLabel(node: ArgLabel): Nothing {
+    throw CompilerException("Unknown label: ${node.name}", node.location)
+}
+
+internal fun errorVariableNotFound(node: Node): Nothing {
+    throw CompilerException("Variable not found: $node", node.getLocation())
+}
+
+internal fun errorValueTooBig(node: Node): Nothing {
+    throw CompilerException("Value too big: $node", node.getLocation())
 }

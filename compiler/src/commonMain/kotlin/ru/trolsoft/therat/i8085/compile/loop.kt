@@ -1,8 +1,8 @@
 package ru.trolsoft.therat.i8085.compile
 
+import ru.trolsoft.compiler.compiler.errorUnsupportedOperation
 import ru.trolsoft.compiler.general.CycleBlock
 import ru.trolsoft.compiler.parser.*
-import ru.trolsoft.therat.avr.errorUnsupportedOperation
 import ru.trolsoft.therat.i8085.I8085RatCompiler
 
 internal fun I8085RatCompiler.compileLoop(loop: LoopNode) {

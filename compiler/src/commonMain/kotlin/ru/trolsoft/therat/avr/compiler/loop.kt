@@ -1,6 +1,7 @@
 package ru.trolsoft.therat.avr.compiler
 
 import ru.trolsoft.compiler.compiler.CompilerException
+import ru.trolsoft.compiler.compiler.errorValueTooBig
 import ru.trolsoft.compiler.compiler.internalError
 import ru.trolsoft.compiler.general.CycleBlock
 import ru.trolsoft.compiler.lexer.SourceLocation

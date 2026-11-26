@@ -1,9 +1,9 @@
 package ru.trolsoft.therat.avr.compiler
 
+import ru.trolsoft.compiler.compiler.errorUnsupportedOperation
 import ru.trolsoft.compiler.compiler.errorWrongExpression
 import ru.trolsoft.compiler.parser.*
 import ru.trolsoft.therat.avr.AvrRatCompiler
-import ru.trolsoft.therat.avr.errorUnsupportedOperation
 
 internal fun AvrRatCompiler.compileSuffixOp(node: SuffixOperNode) {
     when (val expr = resolveArg(node.expression)) {

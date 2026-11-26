@@ -2,6 +2,8 @@ package ru.trolsoft.therat.avr
 
 import kotlinx.io.RawSink
 import ru.trolsoft.compiler.compiler.CompilerException
+import ru.trolsoft.compiler.compiler.errorUnknownLabel
+import ru.trolsoft.compiler.compiler.errorUnsupportedOperation
 import ru.trolsoft.compiler.compiler.internalError
 import ru.trolsoft.compiler.generator.AsmFileGenerator
 import ru.trolsoft.compiler.generator.CompilerOutputAdapter

@@ -94,8 +94,8 @@ open class AvrRatCompiler(
     }
 
     override fun resolveArg(arg: Node): Node {
-        when {
-            arg is IdentifierNode -> {
+        when (arg) {
+            is IdentifierNode -> {
                 val res = resolveIdentifierArg(arg)
                 return if (res is RegisterNode && isAvrPairName(res.reg)) {
                     resolveArg(res)
@@ -106,7 +106,7 @@ open class AvrRatCompiler(
                 }
             }
 
-            arg is RegisterNode -> {
+            is RegisterNode -> {
                 // Check local consts first (they shadow global consts)
                 currentProc?.getConst(arg.reg)?.let { localConst ->
                     val resolved = resolveArg(localConst)
@@ -128,13 +128,12 @@ open class AvrRatCompiler(
                 }
             }
 
-            arg is FunctionCallNode && arg.isBuiltin() -> {
+            is FunctionCallNode if arg.isBuiltin() -> {
                 return arg.compileBuiltin(this)
             }
 
-            arg is CharLiteralNode -> return NumberNode(arg.getLocation(), resolveChar(arg))
-
-            arg is BinaryOperNode -> {
+            is CharLiteralNode -> return NumberNode(arg.getLocation(), resolveChar(arg))
+            is BinaryOperNode -> {
                 if (arg.operator == Operator.ARROW_RIGHT) {
                     return resolveRightArrowed(arg)
                 } else {
@@ -146,11 +145,11 @@ open class AvrRatCompiler(
                 }
             }
 
-            arg is IndexedNode -> {
+            is IndexedNode -> {
                 return resolveIndexedArg(arg)
             }
 
-            arg is IndexedRegNode -> {
+            is IndexedRegNode -> {
                 when (arg.index) {
                     is NumberNode -> return makeRegisterBitNode(arg.reg, arg.index.value)
                     is IdentifierNode -> {
@@ -160,11 +159,11 @@ open class AvrRatCompiler(
                 }
             }
 
-            arg is SuffixOperNode -> {
+            is SuffixOperNode -> {
                 return SuffixOperNode(arg.operator, resolveArg(arg.expression))
             }
 
-            arg is PrefixOperNode -> {
+            is PrefixOperNode -> {
                 val res = PrefixOperNode(arg.getLocation(), arg.operator, resolveArg(arg.expression))
                 if (res.expression is NumberNode && res.operator == Operator.BINARY_NOT) {
                     return NumberNode(res.getLocation(), super.calculateConst(res))
@@ -172,7 +171,7 @@ open class AvrRatCompiler(
                 return res
             }
 
-            arg is DotGroupNode -> {
+            is DotGroupNode -> {
                 val regs = mutableListOf<String>()
                 for (n in arg.items) {
                     when (n) {
@@ -186,7 +185,7 @@ open class AvrRatCompiler(
                 return RegisterGroupNode(arg.getLocation(), regs)
             }
 
-            arg is IndexedNumNode -> {
+            is IndexedNumNode -> {
                 val num = resolveArg(arg.num)
                 val index = resolveArg(arg.index)
                 if (num is NumberNode && index is NumberNode && index.value >= 0 && index.value < 32) {
@@ -480,7 +479,7 @@ open class AvrRatCompiler(
                         return name.modifyName(index.value * itemSize)
                     }
 
-                    else -> return arg//errorUndefinedIdentifier(arg.name)
+                    else -> return arg
                 }
             }
         }
@@ -2094,22 +2093,6 @@ private fun errorReuseOnlyInProc(node: UseNode): Nothing {
     throw CompilerException("reuse is only allowed inside procedures", node.getLocation())
 }
 
-internal fun errorUnsupportedOperation(location: SourceLocation): Nothing {
-    throw CompilerException("Unsupported operation", location)
-}
-
-internal fun errorUnsupportedOperation(node: Node): Nothing {
-    errorUnsupportedOperation(node.getLocation())
-}
-
-internal fun errorUnknownLabel(node: ArgLabel): Nothing {
-    throw CompilerException("Unknown label: ${node.name}", node.location)
-}
-
-internal fun errorVariableNotFound(node: Node): Nothing {
-    throw CompilerException("Variable not found: $node", node.getLocation())
-}
-
 private fun errorEvenValueExpected(node: DirectiveNode): Nothing {
     throw CompilerException("Even value expected", node.getLocation())
 }
@@ -2139,10 +2122,6 @@ private fun errorTooManyCommandsInBlock(node: Node, maxCommands: Int, commandsIn
 
 private fun errorExternalAvailableOnlyForGcc(node: Node): Nothing {
     throw CompilerException("External objects can be used only in GCC-mode", node.getLocation())
-}
-
-internal fun errorValueTooBig(node: Node): Nothing {
-    throw CompilerException("Value too big: $node", node.getLocation())
 }
 
 internal fun errorLowIoExpected(node: Node): Nothing {
