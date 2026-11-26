@@ -580,6 +580,23 @@ enum class ViperCmd(
         }
         return value
     }
+
+
+    companion object {
+        private val map: Map<String, ViperCmd> = buildMap()
+
+        private fun buildMap(): Map<String, ViperCmd> {
+            val map = mutableMapOf<String, ViperCmd>()
+            for (v in ViperCmd.entries) {
+                map[v.name.lowercase()] = v
+            }
+            return map.toMap()
+        }
+
+        fun getByName(name: String): ViperCmd? {
+            return map[name.lowercase()]
+        }
+    }
 }
 
 private fun errorWrongRegistersCombination(): Nothing =

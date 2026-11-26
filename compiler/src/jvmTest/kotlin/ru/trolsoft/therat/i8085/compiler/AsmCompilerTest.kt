@@ -75,7 +75,7 @@ class AsmCompilerTest {
         hex shouldBe ":03000000CD06F832"
     }
 
-    @Test fun `cmp mem HL `() {
+    @Test fun `cmp mem HL`() {
         val r = compileHexProc("cmp mem[HL]")
         r shouldBe ":01000000BE41"
     }

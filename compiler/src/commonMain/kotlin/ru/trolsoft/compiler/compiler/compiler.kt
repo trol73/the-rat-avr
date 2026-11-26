@@ -901,3 +901,7 @@ internal fun errorVariableNotFound(node: Node): Nothing {
 internal fun errorValueTooBig(node: Node): Nothing {
     throw CompilerException("Value too big: $node", node.getLocation())
 }
+
+internal fun errorPairExpected(node: Node): Nothing {
+    throw CompilerException("Register pair expected", node.getLocation())
+}

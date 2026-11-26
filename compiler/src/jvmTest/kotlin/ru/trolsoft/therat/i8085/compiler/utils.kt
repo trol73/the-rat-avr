@@ -52,9 +52,10 @@ fun compileCode(code: String): List<String> {
 fun compileHex(code: String): String {
     val loader = TestFileLoaderStub(code)
     val console = ConsoleReporter({ }, { })
-    val compiler = I8085RatCompiler(true, "", console, loader)
-    compiler.addIntelHexGenerator(Endian.LITTLE)
-    compiler.compile("file.i8085")
+    val compiler = I8085RatCompiler(true, "", console, loader).apply {
+        addIntelHexGenerator(Endian.LITTLE)
+        compile("file.i8085")
+    }
     Buffer().use {
         compiler.saveHex(it)
         return it.readString().removeSuffix("\n:00000001FF\n")
@@ -67,11 +68,12 @@ fun compileHexProc(procBody: String) = compileHex("proc main() {\n$procBody\n}")
 fun compileRkr(code: String, startOffset: Int, os: RawSink) {
     val loader = TestFileLoaderStub(code)
     val console = ConsoleReporter({ }, { })
-    val compiler = I8085RatCompiler(true, "", console, loader)
-    compiler.addBinaryGenerator(Endian.LITTLE)
-    compiler.compile("file.i8085")
     val dataBuf = Buffer()
-    compiler.saveBinary(dataBuf)
+    I8085RatCompiler(true, "", console, loader).apply {
+        addBinaryGenerator(Endian.LITTLE)
+        compile("file.i8085")
+        saveBinary(dataBuf)
+    }
 
     val data = dataBuf.readByteArray()
     dataBuf.close()
@@ -86,7 +88,6 @@ fun compileRkr(code: String, startOffset: Int, os: RawSink) {
         writeByte((endOffset shr 8).toByte())
         writeByte((endOffset and 0xff).toByte())
         write(data)
-        println(data.size)
         writeByte(0x00.toByte())
         writeByte(0xE6.toByte())
         writeByte((crc shr 8).toByte())

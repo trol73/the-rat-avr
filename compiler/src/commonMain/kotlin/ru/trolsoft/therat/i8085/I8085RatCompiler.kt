@@ -639,10 +639,6 @@ private fun resolveIdentifierArg(arg: IdentifierNode): Node {
     fun getStartOffset(): Int = outputStartOffset ?: 0
 }
 
-internal fun errorPairExpected(node: Node): Nothing {
-    throw CompilerException("Register pair expected", node.getLocation())
-}
-
 internal fun errorRegisterExpectedButPairFound(node: RegisterPairNode): Nothing {
     throw CompilerException("Register expected but pair found: ${node.pair}", node.getLocation())
 }

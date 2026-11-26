@@ -5,7 +5,6 @@ import ru.trolsoft.compiler.general.DataType
 import ru.trolsoft.compiler.parser.*
 import ru.trolsoft.therat.arch.avr.IoRegister
 import ru.trolsoft.therat.avr.*
-import ru.trolsoft.therat.i8085.errorPairExpected
 
 private val builtins = setOf("high", "low", "sizeof", "bitmask")
 
