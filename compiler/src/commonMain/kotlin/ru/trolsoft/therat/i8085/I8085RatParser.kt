@@ -62,7 +62,7 @@ class I8085RatParser(
                 }
             }
         }
-        return I8085AstNode(structures, templates, nodes)
+        return I8085AstNode(structures, nodes)
     }
 
     override fun parseProcArgsDefinition(): List<ProcArgumentNode> {

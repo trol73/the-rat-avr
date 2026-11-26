@@ -67,16 +67,15 @@ class AvrRatParser(
                 }
             }
         }
-        return AvrAstNode(vectors, structures, templates, nodes)
+        return AvrAstNode(vectors, structures, nodes)
     }
 
-    override fun parseKeyword(t: KeywordToken): Node {
+    override fun parseKeyword(t: KeywordToken): Node =
         when (t.name) {
-            "use" -> return parseUseBlock(t)
-            "reuse" -> return parseReuseBlock(t)
+            "use" -> parseUseBlock(t)
+            "reuse" -> parseReuseBlock(t)
+            else -> super.parseKeyword(t)
         }
-        return super.parseKeyword(t)
-    }
 
     override fun parseDataType(t: DataTypeToken): DataType =
         when (t.name) {
@@ -526,7 +525,6 @@ class AvrRatParser(
             }
             unreadLast()
             val arg = parseExpression()
-//            val arg = IdentifierNode(next.location, next.)
             val node = AssemblerInstrNode(arg.getLocation(), cmd.name, listOf(arg))
             nodes.add(node)
         }
