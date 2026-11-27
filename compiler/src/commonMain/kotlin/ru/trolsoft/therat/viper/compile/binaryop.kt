@@ -3,6 +3,7 @@ package ru.trolsoft.therat.viper.compile
 import ru.trolsoft.compiler.compiler.CompilerException
 import ru.trolsoft.compiler.compiler.errorLimitedValueExpected
 import ru.trolsoft.compiler.compiler.errorUnsupportedOperation
+import ru.trolsoft.compiler.compiler.errorValueTooBig
 import ru.trolsoft.compiler.compiler.errorWrongExpression
 import ru.trolsoft.compiler.compiler.internalError
 import ru.trolsoft.compiler.general.DataType
@@ -22,6 +23,7 @@ import ru.trolsoft.therat.viper.RegisterPairNode
 import ru.trolsoft.therat.viper.ViperRatCompiler
 import kotlin.math.absoluteValue
 
+
 internal fun ViperRatCompiler.compileBinaryOp(binop: BinaryOperNode) {
     when (binop.operator) {
         Operator.ASSIGN -> compileAssignOp(binop)
@@ -34,6 +36,7 @@ internal fun ViperRatCompiler.compileBinaryOp(binop: BinaryOperNode) {
         Operator.SHR_ASSIGN -> compileShiftAssignOp(binop)
         Operator.MUL_ASSIGN -> compileMulAssignOp(binop)
 //        Operator.ARROW_LEFT -> compileArrowLeftOp(binop)
+        Operator.ARROW_RIGHT -> compileArrowRightOp(binop)
 
         else -> errorWrongExpression(binop)
     }
@@ -43,7 +46,7 @@ internal fun ViperRatCompiler.compileAssignOp(assign: BinaryOperNode) {
     compileAssignOp(assign.left, assign.right, assign.getLocation())
 }
 
-internal fun ViperRatCompiler.compileAssignOp(leftArg: Node, rightArg: Node, loc: SourceLocation) {
+internal fun ViperRatCompiler.compileAssignOpViper(leftArg: Node, rightArg: Node, loc: SourceLocation) {
     val left = resolveArg(leftArg)
     val right = resolveArg(rightArg)
     when {
@@ -192,7 +195,7 @@ internal fun ViperRatCompiler.compileAssignRegisterTo(reg: RegisterNode, right: 
     val src = if (right is VariableNode) right.toMemArrayItem() else resolveArg(right)
     when {
         src is NumberNode -> {
-            if (src.value == 0 && reg.isLowerReg()) {
+            if (src.value == 0 && reg.isR0()) {
                 compileAsmRegReg("xor", reg, reg, loc)
             } else if (src.value < 0 && src.value >= -128) {
                 compileAsmRegNum("movi", reg, src.value and 0xff, loc)
@@ -280,7 +283,17 @@ internal fun ViperRatCompiler.compileAssignRegisterTo(reg: RegisterNode, right: 
 fun ViperRatCompiler.compileAssignPairTo(dest: RegisterPairNode, right: Node, loc: SourceLocation) {
     val src = if (right is VariableNode) right.toMemArrayItem() else resolveArg(right)
     when {
-//        src is NumberNode -> compileAsmPairNum("lxi", dest, src, loc)
+        src is NumberNode -> {
+            if (src.value > 0xffff) {
+                errorValueTooBig(src)
+            }
+            val high = NumberNode(loc, src.value shr 8 and 0xff, src.radix)
+            val low = NumberNode(loc, src.value and 0xff, src.radix)
+
+            compileAssignRegisterTo(dest.highReg(), high, loc)
+            compileAssignRegisterTo(dest.lowReg(), low, loc)
+//            compileAsmPairNum("lxi", dest, src, loc)
+        }
 //        src is IdentifierNode -> compileAsmPairLabel("lxi", dest, src, loc)
 //        src is BinaryOperNode -> compileAssignRegistersToBinaryOp(dest, src, loc)
 //        dest.isSP() && src.isHL() -> compileAsm("sphl", loc)
@@ -420,7 +433,8 @@ fun ViperRatCompiler.compilePlusMinusAssignOp(left: Node, right: Node, loc: Sour
                 errorWrongExpression(left)
             }
         }
-//    } else if (left is RegisterPairNode && left.isHL() && right is RegisterPairNode && !minus) {
+    } else if (left is RegisterPairNode) {
+
 //        compileAsmPair("dad", right, loc)
     } else if (left is RegisterNode && right is BinaryOperNode) {
         val simplified = simplifyBinaryOp(right)
@@ -535,3 +549,4 @@ internal fun errorWrongPortOffset(node: NumberNode): Nothing {
 private val lowerRegsSet = setOf("R0", "R1", "R2", "R3")
 internal fun Node.isR0() = this is RegisterNode && this.reg == "R0"
 internal fun Node.isLowerReg() = this is RegisterNode && this.reg in lowerRegsSet
+

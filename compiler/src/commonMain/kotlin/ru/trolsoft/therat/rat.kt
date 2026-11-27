@@ -22,6 +22,7 @@ import ru.trolsoft.therat.arch.AsmCompileException
 import ru.trolsoft.therat.avr.AvrRatCompiler
 import ru.trolsoft.therat.i8085.I8085RatCompiler
 import ru.trolsoft.therat.preprocessor.PreprocessorException
+import ru.trolsoft.therat.viper.ViperRatCompiler
 
 
 const val VERSION = "0.3"
@@ -37,7 +38,8 @@ fun printUsage() {
            -I<dir>                Add directory to include search path
            -dev=<path>            Set path to dev-files (for AVR only)
            -enc=<path>            Set path to encoding-files
-           -arch=avr|8080|8085    Set CPU architecture 
+           -arch=avr|8080|8085|viper
+                                  Set CPU architecture 
            -gcc                   Produce GCC Assembler file (for AVR only)
            -list                  Produce assembler listing
            -help                  Show this usage screen
@@ -87,7 +89,7 @@ fun compile(
 }
 
 enum class Arch {
-    AVR, I8080, I8085,
+    AVR, I8080, I8085, VIPER,
     WRONG
 }
 data class CmdOptions(
@@ -289,6 +291,7 @@ fun compileFiles(
             val res = when (detectedArch) {
                 Arch.AVR -> compileAvr(src, out, outputFileDefined, gcc, devPath, encodingsPath, defines, includePaths, console, codeListHandler)
                 Arch.I8080, Arch.I8085 -> compileIntel808x(src, out, outputFileDefined, arch == Arch.I8085, encodingsPath, defines, includePaths, console, codeListHandler)
+                Arch.VIPER -> compileViper(src, out, outputFileDefined, encodingsPath, defines, includePaths, console, codeListHandler)
             }
             if (res == false) {
                 return false
@@ -330,17 +333,18 @@ private fun compileAvr(
     console: ConsoleReporter,
     codeListHandler: ((ListingRec) -> Unit)? = null
 ): Boolean {
-    val compiler = AvrRatCompiler(devPath, encodingsPath, console)
-    compiler.addIncludePaths(includePaths)
-    for (def in defines) {
-        compiler.define(def)
+    val compiler = AvrRatCompiler(devPath, encodingsPath, console).apply {
+        addIncludePaths(includePaths)
+        for (def in defines) {
+            define(def)
+        }
+        if (gcc) {
+            addGccAsmGenerator()
+        } else {
+            addIntelHexGenerator(Endian.LITTLE)
+        }
+        addAsmListingGenerator(codeListHandler)
     }
-    if (gcc) {
-        compiler.addGccAsmGenerator()
-    } else {
-        compiler.addIntelHexGenerator(Endian.LITTLE)
-    }
-    compiler.addAsmListingGenerator(codeListHandler)
     if (!compile(compiler, src, console)) {
         return false
     }
@@ -378,14 +382,16 @@ fun compileIntel808x(
     console: ConsoleReporter,
     codeListHandler: ((ListingRec) -> Unit)?
 ) {
-    val compiler = I8085RatCompiler(is8085, encodingPath, console)
-    compiler.addIncludePaths(includePaths)
-    for (def in defines) {
-        compiler.define(def)
+    val compiler = I8085RatCompiler(is8085, encodingPath, console).apply {
+        addIncludePaths(includePaths)
+        for (def in defines) {
+            define(def)
+        }
+        addBinaryGenerator(Endian.LITTLE, 0, 0)
+        addAsmListingGenerator(codeListHandler)
+        compile(src)
     }
-    compiler.addBinaryGenerator(Endian.LITTLE, 0, 0)
-    compiler.addAsmListingGenerator(codeListHandler)
-    compiler.compile(src)
+
     val outDirectiveName = compiler.getOutputName()
     val outPath = if (outDirectiveName != null && !outDefined) {
         Path(src).parent?.toString() + FILE_SEPARATOR + outDirectiveName
@@ -409,6 +415,43 @@ fun compileIntel808x(
     }
 }
 
+fun compileViper(
+    src: String,
+    out: String,
+    outDefined: Boolean,
+    encodingPath: String,
+    defines: List<String>,
+    includePaths: List<String>,
+    console: ConsoleReporter,
+    codeListHandler: ((ListingRec) -> Unit)?
+) {
+    val compiler = ViperRatCompiler(encodingPath, console).apply {
+        addIncludePaths(includePaths)
+        for (def in defines) {
+            define(def)
+        }
+        addBinaryGenerator(Endian.BIG, 0, 0)
+        addAsmListingGenerator(codeListHandler)
+        compile(src)
+    }
+
+    val outDirectiveName = compiler.getOutputName()
+    val outPath = if (outDirectiveName != null && !outDefined) {
+        Path(src).parent?.toString() + FILE_SEPARATOR + outDirectiveName
+    } else {
+        out
+    }
+    val ext = outPath.substringAfterLast('.').lowercase()
+    when (ext) {
+        "hex" -> {
+            compiler.saveHex(outPath)
+        }
+        else -> {
+            compiler.saveBinary(outPath)
+        }
+    }
+}
+
 
 private fun detectArchFromSourceFilenames(files: List<String>): Arch? {
     var res: Arch? = null
@@ -417,6 +460,7 @@ private fun detectArchFromSourceFilenames(files: List<String>): Arch? {
             "art" -> Arch.AVR
             "8080" -> Arch.I8080
             "8085" -> Arch.I8085
+            "viper" -> Arch.VIPER
             else -> null
         }
         if (res == null) {

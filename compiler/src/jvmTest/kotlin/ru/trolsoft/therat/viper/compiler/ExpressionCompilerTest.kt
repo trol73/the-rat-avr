@@ -2,6 +2,7 @@ package ru.trolsoft.therat.viper.compiler
 
 import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.shouldBe
+import ru.trolsoft.therat.avr.compiler.andPrint
 import kotlin.test.Test
 
 class ExpressionCompilerTest {
@@ -20,18 +21,37 @@ class ExpressionCompilerTest {
     @Test fun `reg = 0`() {
         val r = compileProc("R1 = 0")
         r shouldHaveSize 1
-        r.first() shouldBe "xor R1, R1"
+        r.first() shouldBe "movi R1, 0"
     }
 
-//    @Test
-//    fun `pair = val`() {
-//        val r = compileProc("RX = 0x1234")
-//        r shouldHaveSize 1
-//        r.first() shouldBe "lxi SP, 0x75FF"
-//    }
+    @Test fun `pair = val`() {
+        val r = compileProc("RX = 0x1234")
+        r shouldHaveSize 2
+        r.first() shouldBe "movi R3, 0x12"
+        r.last() shouldBe "movi R2, 0x34"
+    }
+
+    @Test fun `RX = 0x1200`() {
+        val r = compileProc("RX = 0x1200")
+        r shouldHaveSize 2
+        r.first() shouldBe "movi R3, 0x12"
+        r.last() shouldBe "movi R2, 0"
+    }
+
+    @Test fun `RX = 0`() {
+        val r = compileProc("RX = 0")
+        r shouldHaveSize 2
+        r.first() shouldBe "movi R3, 0"
+        r.last() shouldBe "movi R2, 0"
+    }
+
+    @Test fun `RX = 0 (hex)`() {
+        compileHexProc("RX = 0") shouldBe "83008200"
+    }
+
 
     @Test fun `call proc with single pair arg`() {
-        val code = """
+        val r = compileCode("""
             proc main() {
                 call subproc(0x12)
             }
@@ -39,8 +59,7 @@ class ExpressionCompilerTest {
             proc subproc(v: R5) {
                 mem[0x10] = R5
             }
-        """.trimIndent()
-        val r = compileCode(code)
+        """.trimIndent())
         r shouldHaveSize 4
         r[0] shouldBe "movi R5, 0x12"
         r[1] shouldBe "call subproc"
@@ -48,79 +67,79 @@ class ExpressionCompilerTest {
         r[3] shouldBe "storei R5, 0x10"
     }
 
-//
-//    @Test
-//    fun `absolute variable = A`() {
-//        val code = """
-//            var myVar: byte absolute 0x7766
-//            proc main() {
-//                myVar = A
-//            }
-//        """.trimIndent()
-//        val r = compileCode(code)
-//        r shouldHaveSize 1
-//        r.first() shouldBe "sta 0x7766"
-//    }
-//
-//    @Test
-//    fun `A = absolute variable`() {
-//        val code = """
-//            var myVar: byte absolute 0x7766
-//            proc main() {
-//                A = myVar
-//            }
-//        """.trimIndent()
-//        val r = compileCode(code)
-//        r shouldHaveSize 1
-//        r.first() shouldBe "lda 0x7766"
-//    }
-//
-//
-//
-//    @Test
-//    fun `saveregs`() {
-//        val r = compileProc(
-//            """
-//            saveregs(BC) {
-//                call    0x1234
-//            }
-//        """.trimIndent()
-//        )
-//        r shouldHaveSize 3
-//        r[0] shouldBe "push BC"
-//        r[1] shouldBe "call 0x1234"
-//        r[2] shouldBe "pop BC"
-//    }
-//
-//    @Test
-//    fun `simple function with argument`() {
-//        val r = compileCode(
-//            """
-//            proc myProc(arg: C) {
-//                A = arg
-//            }
-//        """.trimIndent()
-//        )
-//        r shouldHaveSize 2
-//        r[1] shouldBe "mov A, C"
-//    }
-//
-//    @Test
-//    fun `function with pair args optimization`() {
-//        val r = compileCode(
-//            """
-//            proc myProc(chr: C, len: B) {
-//                call    myProc(chr: 0x10, len: 0x03)
-//            }
-//        """.trimIndent()
-//        )
-//        r[1] shouldBe "lxi BC, 0x310"
-//        r[2] shouldBe "call myProc"
-//    }
-//
-//    @Test
-//    fun `HL += BC`() {
-//        val r = compileProc("HL += BC")
+    @Test fun `saveregs (R3)`() {
+        val r = compileProc("""
+            saveregs(R3) {
+                call    0x1234
+            }
+        """.trimIndent()
+        )
+        r shouldHaveSize 3
+        r[0] shouldBe "push R3"
+        r[1] shouldBe "call 0x1234"
+        r[2] shouldBe "pop R3"
+    }
+
+    @Test fun `saveregs (R0, RX)`() {
+        val r = compileProc("""
+            saveregs(R0, RX) {
+                call    0x1234
+            }
+        """.trimIndent()
+        )
+        r shouldHaveSize 7
+        r[0] shouldBe "push R0"
+        r[1] shouldBe "push R3"
+        r[2] shouldBe "push R2"
+        r[3] shouldBe "call 0x1234"
+        r[4] shouldBe "pop R2"
+        r[5] shouldBe "pop R3"
+        r[6] shouldBe "pop R0"
+    }
+
+    @Test fun `simple function with argument`() {
+        val r = compileCode("""
+            proc myProc(arg: R0) {
+                R7 = arg
+            }
+        """.trimIndent())
+        r shouldHaveSize 2
+        r[1] shouldBe "mov R7, R0"
+    }
+
+    @Test fun `syscall inline()`() {
+        val r = compileCode("""
+            inline proc uartRead() -> (b: r0) {
+                syscall 0x00
+            }
+            
+            proc main() {
+                uartRead()
+            }
+        """.trimIndent())
+        r shouldHaveSize 1
+        r[0] shouldBe "syscall 0"
+    }
+
+    @Test fun `syscall inline with assign retval()`() {
+        val r = compileCode("""
+            inline proc uartRead() -> (b: r0) {
+                syscall 0x00
+            }
+            
+            proc main() {
+                uartRead() -> R7
+            }
+        """.trimIndent()).andPrint()
+        r shouldHaveSize 2
+        r[0] shouldBe "syscall 0"
+        r[1] shouldBe "mov R7, R0"
+    }
+
+
+
+//    @Test fun `RX += RY`() {
+//        val r = compileProc("RX += RY")
 //        r shouldHaveSize 1
 //        r.first() shouldBe "dad BC"
 //    }

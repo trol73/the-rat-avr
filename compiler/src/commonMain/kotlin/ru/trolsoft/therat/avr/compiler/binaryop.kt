@@ -29,7 +29,7 @@ internal fun AvrRatCompiler.compileAssignOp(assign: BinaryOperNode) {
     compileAssignOp(assign.left, assign.right, assign.getLocation())
 }
 
-internal fun AvrRatCompiler.compileAssignOp(leftArg: Node, rightArg: Node, loc: SourceLocation) {
+internal fun AvrRatCompiler.compileAssignOpAvr(leftArg: Node, rightArg: Node, loc: SourceLocation) {
     val left = resolveArg(leftArg)
     val right = resolveArg(rightArg)
     when {
@@ -795,12 +795,15 @@ fun AvrRatCompiler.compileAssignToExternProc(dest: Node, proc: ResolvedExternPro
 }
 
 
-private fun AvrRatCompiler.assignPairToValue(group: RegisterGroupNode, addr: Int, loc: SourceLocation) {
+private fun AvrRatCompiler.assignPairToValue(group: RegisterGroupNode, value: Int, loc: SourceLocation) {
     if (group.size() != 2) {
         errorUnsupportedOperation(loc)
     }
-    val high = NumberNode(loc, addr shr 8 and 0xff)
-    val low = NumberNode(loc, addr and 0xff)
+    if (value > 0xffff) {
+        errorValueTooBig(group)
+    }
+    val high = NumberNode(loc, value shr 8 and 0xff)
+    val low = NumberNode(loc, value and 0xff)
     compileAsmRegNum("ldi", group.buildRegisterNode(0), high, loc)
     compileAsmRegNum("ldi", group.buildRegisterNode(1), low, loc)
 }
@@ -1284,65 +1287,6 @@ fun AvrRatCompiler.compileArrowLeftOp(binop: BinaryOperNode) {
             errorUnsupportedOperation(binop)
         }
     }
-}
-
-private fun AvrRatCompiler.compileArrowRightOp(binop: BinaryOperNode) {
-    if (binop.left is FunctionCallNode) {
-        val funcCall = binop.left
-        val proc = findProc(funcCall)
-        if (proc.results.isNotEmpty()) {
-            val loc = binop.getLocation()
-            val dest = binop.right
-            
-            // Handle named destinations (CallArgumentNode or CompoundStmt of CallArgumentNode)
-            val namedDests = collectNamedDestinations(dest)
-            
-            if (namedDests.isNotEmpty()) {
-                // Named destinations: map by name
-                for (callArg in namedDests) {
-                    val destName = callArg.name ?: errorWrongArgument(callArg)
-                    val procResult = proc.results.find { it.name == destName }
-                        ?: errorUnknownResultName(destName, callArg.getLocation())
-                    // Use compileAssignOp to copy: dest = result
-                    compileAssignOp(callArg.expr, procResult.expr, loc)
-                }
-            } else if (proc.results.size == 1) {
-                // Single result
-                val result = proc.results[0]
-                compileAssignOp(dest, result.expr, loc)
-            } else {
-                // Multiple results with positional destination
-                val destResolved = resolveArg(dest)
-                if (destResolved is RegisterGroupNode) {
-                    for ((i, result) in proc.results.withIndex()) {
-                        if (i < destResolved.size()) {
-                            compileAssignOp(destResolved.getReg(i), result.expr, loc)
-                        }
-                    }
-                }
-            }
-        } else {
-            errorUnexpectedFunctionOutput(binop)
-        }
-    } else {
-        errorUnsupportedOperation(binop)
-    }
-}
-
-private fun collectNamedDestinations(dest: Node): List<CallArgumentNode> {
-    return when (dest) {
-        is CallArgumentNode -> listOf(dest)
-        is CompoundStmt -> dest.nodes.filterIsInstance<CallArgumentNode>()
-        else -> emptyList()
-    }
-}
-
-private fun errorUnknownResultName(name: String, location: SourceLocation): Nothing {
-    throw CompilerException("Unknown result name: $name", location)
-}
-
-private fun errorUnexpectedFunctionOutput(binop: BinaryOperNode): Nothing {
-    throw CompilerException("Unexpected function output", binop.getLocation())
 }
 
 

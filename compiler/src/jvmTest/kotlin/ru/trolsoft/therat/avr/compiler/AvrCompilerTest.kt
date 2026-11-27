@@ -1692,4 +1692,25 @@ class AvrCompilerTest {
         }.message shouldBe "Unexpected function output"
     }
 
+    @Test
+    fun `inline proc with result call`() {
+        val r = compileCode(
+            """
+            #define CPU "atmega8"
+            
+            inline proc read_uart() -> (res: r24) {
+                r24 = 1
+            }
+            
+            proc main() {
+                read_uart() -> r0
+                ret
+            }
+        """.trimIndent())
+
+        r shouldHaveSize 3
+        r[0] shouldBe "ldi r24, 1"
+        r[1] shouldBe "mov r0, r24"
+        r[2] shouldBe "ret"
+    }
 }

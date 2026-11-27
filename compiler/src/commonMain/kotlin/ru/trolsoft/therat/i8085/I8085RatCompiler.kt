@@ -9,12 +9,11 @@ import ru.trolsoft.compiler.lexer.SourceLocation
 import ru.trolsoft.compiler.lexer.TokenStream
 import ru.trolsoft.compiler.parser.*
 import ru.trolsoft.compiler.utils.ConsoleReporter
-import ru.trolsoft.therat.arch.*
+import ru.trolsoft.therat.arch.ArgLabel
+import ru.trolsoft.therat.arch.ArgNumberWithRadix
+import ru.trolsoft.therat.arch.AsmArg
 import ru.trolsoft.therat.arch.i8085.*
 import ru.trolsoft.therat.i8085.compile.*
-import ru.trolsoft.therat.i8085.compile.compileAssignOp
-import ru.trolsoft.therat.i8085.compile.compileBinaryOp
-import ru.trolsoft.therat.i8085.compile.compileSuffixOp
 
 
 class I8085RatCompiler(
@@ -83,6 +82,8 @@ class I8085RatCompiler(
         return arg
     }
 
+    override fun compileAssignOp(leftArg: Node, rightArg: Node, loc: SourceLocation) =
+        compileAssignOp808x(leftArg, rightArg, loc)
 
 
     private fun resolveIdentifierArg(arg: IdentifierNode): Node {
@@ -252,7 +253,7 @@ private fun resolveIdentifierArg(arg: IdentifierNode): Node {
         }
     }
 
-    internal fun compileNode(node: Node) {
+    override fun compileNode(node: Node) {
         when (node) {
             is CompoundStmt -> {
                 for (n in node.nodes) {
@@ -275,7 +276,7 @@ private fun resolveIdentifierArg(arg: IdentifierNode): Node {
             is IfNode -> compileIf(node)
 //            is DoWhileNode -> compileDoWhile(this, node)
             is DataBlockNode -> compileDataBlock(node, true)
-//            is FunctionCallNode -> compileInlineCall(node)
+            is FunctionCallNode -> compileInlineOrNextCall(node, ast?.nodes ?: emptyList())
 //            is UseNode -> processUse(node)
             is SaveregsNode -> processSaveregs(node)
 //            is BreakNode -> processBreak(node)
@@ -476,7 +477,7 @@ private fun resolveIdentifierArg(arg: IdentifierNode): Node {
 
     private fun processSaveregs(node: SaveregsNode) {
         val regs = mutableListOf<Node>()
-        for ((i, arg) in node.args.withIndex()) {
+        for (arg in node.args) {
             val reg = resolveArg(arg)
             if (reg is RegisterPairNode) {
                 compileAsmPair("push", reg, arg.getLocation())
@@ -486,7 +487,7 @@ private fun resolveIdentifierArg(arg: IdentifierNode): Node {
             }
         }
         compileNode(node.body)
-        for ((i, arg) in regs.reversed().withIndex()) {
+        for (arg in regs.reversed()) {
             when (arg) {
                 is RegisterPairNode -> {
                     compileAsmPair("pop", arg, arg.getLocation())

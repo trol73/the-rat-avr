@@ -32,7 +32,7 @@ internal fun I8085RatCompiler.compileAssignOp(assign: BinaryOperNode) {
     compileAssignOp(assign.left, assign.right, assign.getLocation())
 }
 
-internal fun I8085RatCompiler.compileAssignOp(leftArg: Node, rightArg: Node, loc: SourceLocation) {
+internal fun I8085RatCompiler.compileAssignOp808x(leftArg: Node, rightArg: Node, loc: SourceLocation) {
     val left = resolveArg(leftArg)
     val right = resolveArg(rightArg)
     when {

@@ -24,7 +24,6 @@ import kotlinx.io.RawSink
 import ru.trolsoft.compiler.utils.hexWord
 import ru.trolsoft.compiler.utils.resolvePath
 
-
 abstract class Compiler(
     protected val scanner: Scanner,
     private var encodingsPath: String,
@@ -63,9 +62,11 @@ abstract class Compiler(
     abstract fun parse(stream: TokenStream): AstNode
 
     abstract fun compile(ast: AstNode)
+    abstract fun compileNode(node: Node)
 
     internal abstract fun compileAssembler(node: AssemblerInstrNode, comment: String? = null)
     internal abstract fun resolveArg(arg: Node): Node
+    internal abstract fun compileAssignOp(leftArg: Node, rightArg: Node, loc: SourceLocation)
 
     protected fun getVar(name: String): Var? = vars[name]
     protected fun getExternVar(name: String): Var? = externalVars[name]
@@ -695,6 +696,116 @@ abstract class Compiler(
 
     fun getOutputName() = outputName
 
+    protected fun compileInlineOrNextCall(node: FunctionCallNode, astNodes: List<Node>) {
+        val proc = findProc(node)
+        if (proc.inline) {
+            compileInlineCall(node, proc)
+        } else {
+            val currentProcIndex = astNodes.indexOf(currentProc!!.node)
+            val calledProcIndex = astNodes.indexOf(proc)
+            if (currentProcIndex < 0 || calledProcIndex < 0 || currentProcIndex + 1 != calledProcIndex) {
+                errorNotInlineProcCall(node)
+            }
+            if (node.args.isNotEmpty()) {
+                compileCallArgsAssignments(node, proc)
+            }
+        }
+    }
+
+    protected fun compileInlineCall(node: FunctionCallNode, proc: ProcNode) {
+        for (prev in inlineCallStack) {
+            if (prev.name == node.name) {
+                errorRecursiveInlineCall(node)
+            }
+        }
+
+        compileCallArgsAssignments(node, proc)
+        inlineCallStack.add(proc)
+        val labelSuffix = "_inl_${currentProc?.name ?: ""}_${node.getLocation().line}"
+        inlineLabel += labelSuffix
+        inlineLabelCounter++
+        compileNode(proc.body)
+        inlineLabel = inlineLabel.substring(0, inlineLabel.length - labelSuffix.length)
+        inlineCallStack.removeAt(inlineCallStack.size - 1)
+    }
+
+    private fun compileCallArgsAssignments(
+        node: FunctionCallNode,
+        proc: ProcNode
+    ) {
+        for (a in node.args) {
+            if (a !is CallArgumentNode) {
+                errorWrongArgument(a)
+            }
+        }
+        if (node.args.size == 1 && (node.args[0] as CallArgumentNode).name == null) {
+            val a = node.args[0] as CallArgumentNode
+            val procArg = resolveArg(proc.args[0].expr)
+            compileAssignOp(procArg, a.expr, a.getLocation())
+        } else {
+            for (callArgNode in node.args) {
+                val callArg = callArgNode as CallArgumentNode
+                val argName = callArg.name ?: errorWrongArgument(callArg)
+                val dest = proc.getArg(argName) ?: errorWrongArgument(callArg)
+                compileAssignOp(dest, callArg.expr, callArg.getLocation())
+            }
+        }
+    }
+
+    internal fun compileArrowRightOp(binop: BinaryOperNode) {
+        if (binop.left is FunctionCallNode) {
+            val funcCall = binop.left
+            val proc = findProc(funcCall)
+            if (proc.inline) {
+                compileInlineCall(funcCall, proc)
+            }
+            if (proc.results.isNotEmpty()) {
+                val loc = binop.getLocation()
+                val dest = binop.right
+
+                // Handle named destinations (CallArgumentNode or CompoundStmt of CallArgumentNode)
+                val namedDests = collectNamedDestinations(dest)
+
+                if (namedDests.isNotEmpty()) {
+                    // Named destinations: map by name
+                    for (callArg in namedDests) {
+                        val destName = callArg.name ?: errorWrongArgument(callArg)
+                        val procResult = proc.results.find { it.name == destName }
+                            ?: errorUnknownResultName(destName, callArg.getLocation())
+                        // Use compileAssignOp to copy: dest = result
+                        compileAssignOp(callArg.expr, procResult.expr, loc)
+                    }
+                } else if (proc.results.size == 1) {
+                    // Single result
+                    val result = proc.results[0]
+                    compileAssignOp(dest, result.expr, loc)
+                } else {
+                    // Multiple results with positional destination
+                    val destResolved = resolveArg(dest)
+                    if (destResolved is RegisterGroupNode) {
+                        for ((i, result) in proc.results.withIndex()) {
+                            if (i < destResolved.size()) {
+                                compileAssignOp(destResolved.getReg(i), result.expr, loc)
+                            }
+                        }
+                    }
+                }
+            } else {
+                errorUnexpectedFunctionOutput(binop)
+            }
+        } else {
+            errorUnsupportedOperation(binop)
+        }
+    }
+
+    private fun collectNamedDestinations(dest: Node): List<CallArgumentNode> {
+        return when (dest) {
+            is CallArgumentNode -> listOf(dest)
+            is CompoundStmt -> dest.nodes.filterIsInstance<CallArgumentNode>()
+            else -> emptyList()
+        }
+    }
+
 }
 
 fun internalError(): Nothing {
@@ -904,4 +1015,20 @@ internal fun errorValueTooBig(node: Node): Nothing {
 
 internal fun errorPairExpected(node: Node): Nothing {
     throw CompilerException("Register pair expected", node.getLocation())
+}
+
+internal fun errorRecursiveInlineCall(node: FunctionCallNode): Nothing {
+    throw CompilerException("Recursive inline call", node.getLocation())
+}
+
+internal fun errorNotInlineProcCall(node: FunctionCallNode): Nothing {
+    throw CompilerException("Not inline function call", node.getLocation())
+}
+
+private fun errorUnknownResultName(name: String, location: SourceLocation): Nothing {
+    throw CompilerException("Unknown result name: $name", location)
+}
+
+private fun errorUnexpectedFunctionOutput(binop: BinaryOperNode): Nothing {
+    throw CompilerException("Unexpected function output", binop.getLocation())
 }

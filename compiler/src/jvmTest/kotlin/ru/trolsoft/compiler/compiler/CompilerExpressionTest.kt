@@ -3,6 +3,7 @@ package ru.trolsoft.compiler.compiler
 import io.kotest.matchers.shouldBe
 import kotlinx.io.Buffer
 import org.junit.jupiter.api.Test
+import ru.trolsoft.compiler.lexer.SourceLocation
 import ru.trolsoft.compiler.lexer.TokenStream
 import ru.trolsoft.compiler.parser.*
 import ru.trolsoft.compiler.utils.ConsoleReporter
@@ -26,8 +27,11 @@ class CompileExpressionTest {
         val compiler = object : Compiler(scanner, "", ConsoleReporter({ }, { })) {
             override fun parse(stream: TokenStream): AstNode = AstNode(listOf(parser.parse()))
             override fun compile(ast: AstNode) {}
+            override fun compileNode(node: Node) {}
+
             override fun compileAssembler(node: AssemblerInstrNode, comment: String?) {}
             override fun resolveArg(arg: Node): Node = arg
+            override fun compileAssignOp(leftArg: Node, rightArg: Node, loc: SourceLocation) {}
         }
         return compiler.calculateConst(parser.parse())
     }

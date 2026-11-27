@@ -3,6 +3,7 @@ package ru.trolsoft.therat.preprocessor
 import ru.trolsoft.compiler.compiler.Compiler
 import ru.trolsoft.compiler.compiler.errorUndefinedIdentifier
 import ru.trolsoft.compiler.compiler.errorWrongExpression
+import ru.trolsoft.compiler.lexer.SourceLocation
 import ru.trolsoft.compiler.lexer.TokenStream
 import ru.trolsoft.compiler.parser.*
 import ru.trolsoft.compiler.utils.ConsoleReporter
@@ -31,10 +32,10 @@ private class PpcCompiler(
     override fun compile(ast: AstNode) {
     }
 
-    override fun compileAssembler(node: AssemblerInstrNode, comment: String?) {
-    }
-
+    override fun compileNode(node: Node) { }
+    override fun compileAssembler(node: AssemblerInstrNode, comment: String?) {}
     override fun resolveArg(arg: Node): Node = arg
+    override fun compileAssignOp(leftArg: Node, rightArg: Node, loc: SourceLocation) {}
 
     override fun parse(stream: TokenStream): AstNode = PpcParser(stream).parse()
 

@@ -1,5 +1,6 @@
 package ru.trolsoft.therat.avr
 
+import kotlinx.io.RawSink
 import ru.trolsoft.compiler.compiler.*
 import ru.trolsoft.compiler.general.*
 import ru.trolsoft.compiler.lexer.FileLoader
@@ -9,20 +10,9 @@ import ru.trolsoft.compiler.parser.*
 import ru.trolsoft.compiler.utils.ConsoleReporter
 import ru.trolsoft.therat.arch.*
 import ru.trolsoft.therat.arch.avr.*
+import ru.trolsoft.therat.avr.compiler.*
 import ru.trolsoft.therat.avr.compiler.bus.parseBusDefinition
-import ru.trolsoft.therat.avr.compiler.compileAssignNodeToRegister
-import ru.trolsoft.therat.avr.compiler.compileAssignOp
-import ru.trolsoft.therat.avr.compiler.compileAssignRegTo
-import ru.trolsoft.therat.avr.compiler.compileBinaryOp
-import ru.trolsoft.therat.avr.compiler.compileBuiltin
-import ru.trolsoft.therat.avr.compiler.compileDoWhile
-import ru.trolsoft.therat.avr.compiler.compileIf
-import ru.trolsoft.therat.avr.compiler.compileLoop
-import ru.trolsoft.therat.avr.compiler.compileSuffixOp
-import ru.trolsoft.therat.avr.compiler.isBuiltin
-import kotlinx.io.RawSink
 import ru.trolsoft.therat.lang.IdentifierToken
-import kotlin.collections.get
 import kotlin.math.abs
 import kotlin.math.absoluteValue
 
@@ -46,8 +36,6 @@ open class AvrRatCompiler(
     private var _device: AvrDevice? = null
     private var variableOffset: Int = 0
     private var pendingPadToNode: DirectiveNode? = null
-
-
 
     private var ast: AvrAstNode? = null
 
@@ -198,6 +186,12 @@ open class AvrRatCompiler(
         }
         return arg
     }
+
+    override fun compileAssignOp(
+        leftArg: Node,
+        rightArg: Node,
+        loc: SourceLocation
+    ) = compileAssignOpAvr(leftArg, rightArg, loc)
 
     private fun resolveRightArrowed(arg: BinaryOperNode): Node {
         val left = resolveArg(arg.left)
@@ -721,16 +715,16 @@ open class AvrRatCompiler(
         }
     }
 
-    internal fun compileAsmPairNum(
-        cmd: String,
-        pair1: RegisterGroupNode,
-        num2: Int,
-        location: SourceLocation,
-        comment: String? = null
-    ) {
-        val cmdNode = AssemblerInstrNode(location, cmd, listOf(pair1, NumberNode(location, num2)))
-        compileAssembler(cmdNode, comment)
-    }
+//    internal fun compileAsmPairNum(
+//        cmd: String,
+//        pair1: RegisterGroupNode,
+//        num2: Int,
+//        location: SourceLocation,
+//        comment: String? = null
+//    ) {
+//        val cmdNode = AssemblerInstrNode(location, cmd, listOf(pair1, NumberNode(location, num2)))
+//        compileAssembler(cmdNode, comment)
+//    }
 
     internal fun compileAsmNumReg(
         cmd: String,
@@ -1237,7 +1231,7 @@ open class AvrRatCompiler(
         }
     }
 
-    internal fun compileNode(node: Node) {
+    override fun compileNode(node: Node) {
         when (node) {
             is CompoundStmt -> {
                 for (n in node.nodes) {
@@ -1260,7 +1254,7 @@ open class AvrRatCompiler(
             is IfNode -> compileIf(node)
             is DoWhileNode -> compileDoWhile(node)
             is DataBlockNode -> compileDataBlock(node, true)
-            is FunctionCallNode -> compileInlineOrNextCall(node)
+            is FunctionCallNode -> compileInlineOrNextCall(node, ast?.nodes ?: emptyList())
             is UseNode -> processUse(node)
             is SaveregsNode -> processSaveregs(node)
             is BreakNode -> processBreak(node)
@@ -1859,64 +1853,6 @@ open class AvrRatCompiler(
         }
     }
 
-    private fun compileInlineOrNextCall(node: FunctionCallNode) {
-        val proc = findProc(node)
-        if (proc.inline) {
-            compileInlineCall(node, proc)
-        } else {
-            val astNodes = ast?.nodes
-            val currentProcIndex = astNodes?.indexOf(currentProc!!.node)
-            val calledProcIndex = astNodes?.indexOf(proc)
-            if (currentProcIndex == null || calledProcIndex == null || currentProcIndex < 0 || calledProcIndex < 0 || currentProcIndex + 1 != calledProcIndex) {
-                errorNotInlineProcCall(node)
-            }
-            if (node.args.isNotEmpty()) {
-                compileCallArgsAssignments(node, proc)
-            }
-        }
-    }
-
-    private fun compileInlineCall(node: FunctionCallNode, proc: ProcNode) {
-        for (prev in inlineCallStack) {
-            if (prev.name == node.name) {
-                errorRecursiveInlineCall(node)
-            }
-        }
-
-        compileCallArgsAssignments(node, proc)
-        inlineCallStack.add(proc)
-        val labelSuffix = "_inl_${currentProc?.name ?: ""}_${node.getLocation().line}"
-        inlineLabel += labelSuffix
-        inlineLabelCounter++
-        compileNode(proc.body)
-        inlineLabel = inlineLabel.substring(0, inlineLabel.length - labelSuffix.length)
-        inlineCallStack.removeAt(inlineCallStack.size - 1)
-    }
-
-    private fun AvrRatCompiler.compileCallArgsAssignments(
-        node: FunctionCallNode,
-        proc: ProcNode
-    ) {
-        for (a in node.args) {
-            if (a !is CallArgumentNode) {
-                errorWrongArgument(a)
-            }
-        }
-        if (node.args.size == 1 && (node.args[0] as CallArgumentNode).name == null) {
-            val a = node.args[0] as CallArgumentNode
-            val procArg = resolveArg(proc.args[0].expr)
-            compileAssignOp(procArg, a.expr, a.getLocation())
-        } else {
-            for (callArgNode in node.args) {
-                val callArg = callArgNode as CallArgumentNode
-                val argName = callArg.name ?: errorWrongArgument(callArg)
-                val dest = proc.getArg(argName) ?: errorWrongArgument(callArg)
-                compileAssignOp(dest, callArg.expr, callArg.getLocation())
-            }
-        }
-    }
-
-
     fun isSingleInstructionNode(node: Node): Boolean =
         when (node) {
             is AssemblerInstrNode -> true
@@ -2012,14 +1948,6 @@ private fun AsmCmd.isHighRegCmd() =
     this == AvrCmd.LDI || this == AvrCmd.SUBI || this == AvrCmd.ANDI || this == AvrCmd.ORI || this == AvrCmd.SBCI || this == AvrCmd.CPI
 
 
-private fun errorUnknownAssemblerCommand(name: String, location: SourceLocation): Nothing {
-    throw CompilerException("Unknown assembler instruction: $name", location)
-}
-
-private fun errorUnknownRegister(node: RegisterNode): Nothing {
-    throw CompilerException("Unknown register instruction: ${node.reg}", node.getLocation())
-}
-
 internal fun errorInvalidArgument(node: Node): Nothing {
     throw CompilerException("Invalid argument", node.getLocation())
 }
@@ -2099,14 +2027,6 @@ private fun errorEvenValueExpected(node: DirectiveNode): Nothing {
 
 private fun errorLabelNotFound(node: ProgramMemNode): Nothing {
     throw CompilerException("Label not found: ${node.label}", node.getLocation())
-}
-
-private fun errorNotInlineProcCall(node: FunctionCallNode): Nothing {
-    throw CompilerException("Not inline function call", node.getLocation())
-}
-
-private fun errorRecursiveInlineCall(node: FunctionCallNode): Nothing {
-    throw CompilerException("Recursive inline call", node.getLocation())
 }
 
 private fun errorSingleInstructionExpected(node: Node, commandsInBlock: Int): Nothing {

@@ -106,6 +106,7 @@ open class AsmFileGenerator: Generator(), LabelResolver {
         val sb = StringBuilder()
         sb.append('\t').append(cmd.str())
         if (args.isNotEmpty()) {
+            sb.append(' ')
             while (sb.length < 8) {
                 sb.append(' ')
             }

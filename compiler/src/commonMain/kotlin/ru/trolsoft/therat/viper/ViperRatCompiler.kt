@@ -68,7 +68,7 @@ import ru.trolsoft.therat.arch.viper.ArgRegPair
 import ru.trolsoft.therat.arch.viper.ArgType
 import ru.trolsoft.therat.arch.viper.ViperCmd
 import ru.trolsoft.therat.arch.viper.isViperPair
-import ru.trolsoft.therat.viper.compile.compileAssignOp
+import ru.trolsoft.therat.viper.compile.compileAssignOpViper
 import ru.trolsoft.therat.viper.compile.compileBinaryOp
 import ru.trolsoft.therat.viper.compile.compileBuiltin
 import ru.trolsoft.therat.viper.compile.compileIf
@@ -89,7 +89,7 @@ class ViperRatCompiler(
     private val constValues = mutableMapOf<String, Node>()
     private var variableOffset: Int = 0
     private var outputStartOffset: Int? = null
-    private var varBaseOffset: Int? = null
+    private var varBaseOffset: Int = 0//? = null
 
     private var ast: ViperAstNode? = null
 
@@ -142,6 +142,8 @@ class ViperRatCompiler(
         return arg
     }
 
+    override fun compileAssignOp(leftArg: Node, rightArg: Node, loc: SourceLocation) =
+        compileAssignOpViper(leftArg, rightArg, loc)
 
 
     private fun resolveIdentifierArg(arg: IdentifierNode): Node {
@@ -311,7 +313,7 @@ private fun resolveIdentifierArg(arg: IdentifierNode): Node {
         }
     }
 
-    internal fun compileNode(node: Node) {
+    override fun compileNode(node: Node) {
         when (node) {
             is CompoundStmt -> {
                 for (n in node.nodes) {
@@ -334,7 +336,7 @@ private fun resolveIdentifierArg(arg: IdentifierNode): Node {
             is IfNode -> compileIf(node)
 //            is DoWhileNode -> compileDoWhile(this, node)
             is DataBlockNode -> compileDataBlock(node, true)
-//            is FunctionCallNode -> compileInlineCall(node)
+            is FunctionCallNode -> compileInlineOrNextCall(node, ast?.nodes ?: emptyList())
 //            is UseNode -> processUse(node)
             is SaveregsNode -> processSaveregs(node)
 //            is BreakNode -> processBreak(node)
@@ -537,18 +539,29 @@ private fun resolveIdentifierArg(arg: IdentifierNode): Node {
         val regs = mutableListOf<Node>()
         for ((i, arg) in node.args.withIndex()) {
             val reg = resolveArg(arg)
-            if (reg is RegisterPairNode) {
-                compileAsmPair("push", reg, arg.getLocation())
-                regs.add(reg)
-            } else {
-                errorUnexpectedArgument(arg)
+            when (reg) {
+                is RegisterNode -> {
+                    compileAsmReg("push", reg, arg.getLocation())
+                    regs.add(reg)
+                }
+                is RegisterPairNode -> {
+                    val hi = reg.highReg()
+                    compileAsmReg("push", hi, arg.getLocation())
+                    regs.add(hi)
+                    val low = reg.lowReg()
+                    compileAsmReg("push", low, arg.getLocation())
+                    regs.add(low)
+                }
+                else -> {
+                    errorUnexpectedArgument(arg)
+                }
             }
         }
         compileNode(node.body)
         for ((i, arg) in regs.reversed().withIndex()) {
             when (arg) {
-                is RegisterPairNode -> {
-                    compileAsmPair("pop", arg, arg.getLocation())
+                is RegisterNode -> {
+                    compileAsmReg("pop", arg, arg.getLocation())
                 }
                 else -> {
                     internalError()
@@ -696,7 +709,25 @@ private fun resolveIdentifierArg(arg: IdentifierNode): Node {
     }
 
     fun getStartOffset(): Int = outputStartOffset ?: 0
+
+    internal fun RegisterPairNode.lowReg() =
+        when (this.pair) {
+            "RX" -> RegisterNode(getLocation(), "R2")
+            "RY" -> RegisterNode(getLocation(), "R4")
+            "RZ" -> RegisterNode(getLocation(), "R6")
+            else -> internalError()
+        }
+
+    internal fun RegisterPairNode.highReg() =
+        when (this.pair) {
+            "RX" -> RegisterNode(getLocation(), "R3")
+            "RY" -> RegisterNode(getLocation(), "R5")
+            "RZ" -> RegisterNode(getLocation(), "R7")
+            else -> internalError()
+        }
+
 }
+
 
 internal fun errorUndefinedAddress(node: Node): Nothing {
     throw CompilerException("Undefined variable address", node.getLocation())
